@@ -1,15 +1,8 @@
 from django.urls import path
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 
-from apps.core.selectors import health_check
-
-
-@api_view(["GET"])
-def healthz(request):
-    return Response(health_check())
-
+from apps.core.api.views import healthz, readyz
 
 urlpatterns = [
-    path("healthz/", health_check, name="healthz"),
+    path("healthz", healthz, name="healthz"),
+    path("readyz", readyz, name="readyz"),
 ]

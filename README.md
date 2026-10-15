@@ -196,10 +196,4 @@ Location data is personal data under the Nigeria Data Protection Act. The system
 - Shows a privacy notice to users
 - Provides a `purge_location_data` command that nulls latitude and longitude older than `LOCATION_RETENTION_DAYS` (default 180) while preserving distance_m
 
-## License
 
-[Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
