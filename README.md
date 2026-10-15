@@ -2,6 +2,10 @@
 
 A production-grade university attendance system that prevents students from signing in for absent classmates. A check-in is `PRESENT` only when all three conditions hold: a fresh QR code, passkey identity verification, and physical presence inside the classroom. Anything else becomes `FLAGGED` for teacher review.
 
+## 🌐 Live Deployment
+
+**Production URL:** https://pomsom.akili.com.ng
+
 ## Features
 
 - **Secure Check-in System**: Multi-factor verification using QR codes, WebAuthn passkeys, and geolocation
@@ -158,6 +162,236 @@ pomsom/
 ### Environment Variables
 
 See `.env.example` for the complete list of required environment variables.
+
+## 📖 User Guide
+
+### Access URLs
+
+- **Live Production:** https://pomsom.akili.com.ng
+- **Login Page:** https://pomsom.akili.com.ng/login/
+- **Admin Panel:** https://pomsom.akili.com.ng/admin/
+- **API Documentation:** https://pomsom.akili.com.ng/api/v1/docs/
+
+### User Roles & Flows
+
+#### 1. Admin Flow
+
+**Access:** https://pomsom.akili.com.ng/admin/
+
+**Setup Steps:**
+1. Create admin account (done locally with `python manage.py createsuperuser`)
+2. Access Django Admin panel
+3. Configure initial data:
+   - Create academic terms (e.g., 2024/2025 First Semester)
+   - Add rooms/buildings (e.g., Room 101, Lecture Hall A)
+   - Create courses (e.g., CSC 101, MTH 201)
+   - Import students via CSV (email, student_id, full_name)
+   - Import teachers via CSV (email, full_name)
+   - Import advisors via CSV (email, full_name)
+   - Create enrollments (link students to courses)
+   - Assign advisors to students
+
+**Admin Responsibilities:**
+- Manage users (students, teachers, advisors)
+- Configure attendance policies (minimum attendance % for exam eligibility)
+- Review flagged check-ins
+- Monitor system health via audit logs
+- Export attendance reports
+
+#### 2. Teacher Flow
+
+**Login:** https://pomsom.akili.com.ng/login/
+
+**Daily Class Session:**
+1. Log in with passkey
+2. Navigate to "My Sessions" or create new session
+3. Select course and room
+4. Open session for check-ins
+5. Display QR code on projector screen
+6. Monitor student check-ins in real-time
+7. Close session after class
+8. Review flagged check-ins (suspicious activity)
+9. Finalize attendance (approve/reject flagged entries)
+
+**Teacher Dashboard:**
+- View upcoming sessions
+- See active session QR code
+- Monitor live check-ins
+- Review flagged check-ins
+- Approve/reject suspicious entries
+- View attendance reports per course
+
+#### 3. Student Flow
+
+**Account Activation:**
+1. Receive activation code via email (sent by admin)
+2. Visit https://pomsom.akili.com.ng/activate/
+3. Enter activation code
+4. Create password (for recovery)
+5. Register passkey (recommended: use phone fingerprint or security key)
+6. Registration complete!
+
+**Daily Check-in Process:**
+1. Open https://pomsom.akili.com.ng on phone browser
+2. Log in with passkey (fingerprint/Face ID)
+3. See today's scheduled classes
+4. When teacher displays QR code:
+   - Allow camera access
+   - Scan QR code displayed in classroom
+   - Wait for location verification (GPS)
+   - Wait for passkey verification
+   - See check-in status (PRESENT or FLAGGED)
+5. If FLAGGED: Report to teacher for manual review
+
+**Student Dashboard:**
+- View class schedule
+- Check attendance history
+- See attendance percentage per course
+- Receive early warning alerts (if attendance drops below threshold)
+- Manage passkeys (add/remove devices)
+
+#### 4. Advisor Flow
+
+**Login:** https://pomsom.akili.com.ng/login/
+
+**Advisor Dashboard:**
+- View assigned students
+- Monitor attendance across all courses
+- Identify at-risk students (low attendance)
+- Receive early warning alerts
+- Contact students with attendance issues
+- Generate attendance reports for academic review
+
+### Check-in Decision Flow
+
+```
+Student scans QR code
+         ↓
+Is QR code fresh (within 20 seconds)?
+         ↓ NO → FLAGGED (stale code)
+         ↓ YES
+Is passkey valid and registered to student?
+         ↓ NO → FLAGGED (invalid passkey)
+         ↓ YES
+Is student physically in classroom (geolocation)?
+         ↓ NO → FLAGGED (outside classroom)
+         ↓ YES
+Is there suspicious activity?
+         ↓ YES → FLAGGED (possible fraud)
+         ↓ NO
+    → PRESENT ✓
+```
+
+### Fraud Detection Rules
+
+A check-in is automatically FLAGGED if:
+- QR code is expired (> 20 seconds old)
+- Passkey not registered to the student
+- Location outside classroom radius (> 100m accuracy threshold)
+- Multiple check-ins from same device for different students
+- Coordinates identical to another recent check-in (possible device sharing)
+- Network burst pattern (rapid successive check-ins)
+- New passkey used within 24 hours of registration
+
+All FLAGGED check-ins require **manual teacher review** before finalizing.
+
+### Initial Setup Checklist
+
+**First-time Admin Setup:**
+
+1. **Create Admin Account**
+   ```bash
+   python manage.py createsuperuser
+   ```
+   - Email: admin@your-university.edu
+   - Password: (secure password)
+
+2. **Access Admin Panel**
+   - Visit: https://pomsom.akili.com.ng/admin/
+   - Log in with admin credentials
+
+3. **Configure Academic Structure**
+   - Go to "Academics" section
+   - Add Terms (e.g., "2024/2025 First Semester")
+   - Add Rooms (e.g., "Room 101", "Lecture Hall A")
+   - Add Courses (e.g., "CSC 101 - Introduction to Computer Science")
+
+4. **Import Users**
+   - Prepare CSV files for students, teachers, advisors
+   - Format: `email,student_id,full_name` (for students)
+   - Format: `email,full_name` (for teachers/advisors)
+   - Use Admin panel import function
+
+5. **Create Enrollments**
+   - Link students to their courses
+   - Assign advisors to students
+
+6. **Configure Policies**
+   - Set minimum attendance percentage for exam eligibility (default: 75%)
+   - Configure location retention period (default: 180 days)
+
+7. **Test the System**
+   - Create a test student account
+   - Activate the account
+   - Register a passkey
+   - Test QR code check-in flow
+   - Verify attendance tracking
+
+### CSV Import Format
+
+**Students CSV:**
+```csv
+email,student_id,full_name
+student1@university.edu,STU001,John Doe
+student2@university.edu,STU002,Jane Smith
+```
+
+**Teachers CSV:**
+```csv
+email,full_name
+teacher1@university.edu,Dr. Alan Turing
+teacher2@university.edu,Prof. Grace Hopper
+```
+
+**Advisors CSV:**
+```csv
+email,full_name
+advisor1@university.edu,Dr. Margaret Hamilton
+advisor2@university.edu,Prof. Katherine Johnson
+```
+
+**Enrollments CSV:**
+```csv
+student_email,course_code
+student1@university.edu,CSC101
+student1@university.edu,MTH201
+student2@university.edu,CSC101
+```
+
+### Troubleshooting
+
+**Student can't log in:**
+- Check if account is activated
+- Verify passkey is registered
+- Try password recovery option
+
+**QR code not scanning:**
+- Ensure QR code is displayed clearly
+- Check camera permissions
+- Update browser to latest version
+
+**Location verification failing:**
+- Enable GPS/location services on phone
+- Ensure you're physically in the classroom
+- Check if building has GPS signal
+
+**Check-in showing FLAGGED:**
+- Check if QR code was stale (scan faster next time)
+- Verify you're using your own passkey
+- Ensure you're within classroom boundaries
+- Contact teacher for manual review
+
+
 
 ## Security
 
