@@ -86,10 +86,14 @@ cp .env.example .env
 python manage.py migrate
 ```
 
-7. Create a superuser:
+7. Create admin account:
 ```bash
-python manage.py createsuperuser
+python create_admin.py
 ```
+This creates:
+- Email: admin@pomsom.akili.com.ng
+- Password: Admin@1234
+- Role: ADMIN
 
 8. Run the development server:
 ```bash
@@ -163,6 +167,12 @@ pomsom/
 
 See `.env.example` for the complete list of required environment variables.
 
+**Local Development:**
+- **Local URL:** http://localhost:8000
+- **Login Page:** http://localhost:8000/login/
+- **Admin Panel:** http://localhost:8000/admin/
+- **API Documentation:** http://localhost:8000/api/v1/docs/
+
 ## 📖 User Guide
 
 ### Access URLs
@@ -202,8 +212,17 @@ See `.env.example` for the complete list of required environment variables.
 
 **Login:** https://pomsom.akili.com.ng/login/
 
+**Teacher Account Setup:**
+1. Admin creates teacher account via CSV import or Admin panel
+2. Teacher receives activation code via email
+3. Teacher visits https://pomsom.akili.com.ng/activate/
+4. Teacher enters activation code
+5. Teacher sets password (for recovery)
+6. Teacher registers passkey (fingerprint/Face ID on phone)
+7. Account activated and ready!
+
 **Daily Class Session:**
-1. Log in with passkey
+1. Log in with passkey at https://pomsom.akili.com.ng/login/
 2. Navigate to "My Sessions" or create new session
 3. Select course and room
 4. Open session for check-ins
@@ -301,10 +320,14 @@ All FLAGGED check-ins require **manual teacher review** before finalizing.
 
 1. **Create Admin Account**
    ```bash
-   python manage.py createsuperuser
+   python create_admin.py
    ```
-   - Email: admin@your-university.edu
-   - Password: (secure password)
+   This creates an admin account with:
+   - Email: admin@pomsom.akili.com.ng
+   - Password: Admin@1234
+   - Role: ADMIN
+
+   **IMPORTANT:** Change this password after first login!
 
 2. **Access Admin Panel**
    - Visit: https://pomsom.akili.com.ng/admin/
@@ -405,7 +428,23 @@ student2@university.edu,CSC101
 - Location data is collected only during check-in, never continuously
 - Never log coordinates, tokens, assertions, or activation codes
 
+## Future Enhancements
+
+- **Map Interface for Classroom Locations**: Visual map to pin classroom locations and draw radius circles instead of manual coordinate entry
+- **Push Notifications**: Real-time alerts for students when check-in is about to open
+- **Offline Mode**: Allow check-in queuing when internet is poor, sync when reconnected
+- **Multi-Language Support**: Support for local languages
+- **Advanced Analytics**: Attendance trends, heatmaps, and predictive analytics
+- **Mobile App**: Native mobile apps for better camera performance and background location
+
 ## Privacy
+
+Location data is personal data under the Nigeria Data Protection Act. The system:
+- Collects location only during check-in
+- Never tracks location continuously
+- Shows a privacy notice to users
+- Provides a `purge_location_data` command that nulls latitude and longitude older than `LOCATION_RETENTION_DAYS` (default 180) while preserving distance_m
+
 
 Location data is personal data under the Nigeria Data Protection Act. The system:
 - Collects location only during check-in

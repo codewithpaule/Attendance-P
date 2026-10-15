@@ -1,7 +1,8 @@
 import os
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
+# Use production settings to connect to Neon
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.prod')
 django.setup()
 
 from django.contrib.auth import get_user_model
@@ -16,7 +17,8 @@ if not User.objects.filter(email='admin@pomsom.akili.com.ng').exists():
         full_name='System Administrator',
         role='ADMIN'
     )
-    print(f"[OK] Superuser created: {user.email}")
+    print(f"[OK] Superuser created in Neon: {user.email}")
     print(f"  Password: Admin@1234")
+    print(f"  IMPORTANT: Change this password after first login!")
 else:
-    print("[OK] Superuser already exists: admin@pomsom.akili.com.ng")
+    print("[OK] Superuser already exists in Neon: admin@pomsom.akili.com.ng")
