@@ -13,8 +13,9 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.prod')
 import django
 django.setup()
 
-# Import WSGI application
+# Import the WSGI application
 from config.wsgi import application
 
-# Export the WSGI application for Vercel
-app = application
+# Expose the WSGI application for Vercel
+# This is the entrypoint for Vercel's Python runtime
+application = application

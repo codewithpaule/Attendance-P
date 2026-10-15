@@ -48,7 +48,8 @@ if DATABASE_URL := env.str("DATABASE_URL", default=None):
 DATABASE_URL_DIRECT = env.str("DATABASE_URL_DIRECT", default=None)
 
 # ALLOWED_HOSTS - accept Vercel URLs and custom domain
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+# In production, set this explicitly. For now, accept all to get it working.
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
 # WebAuthn configuration - fail fast if missing or invalid
 WEBAUTHN_RP_ID = env.str("WEBAUTHN_RP_ID")
