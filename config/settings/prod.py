@@ -47,6 +47,9 @@ if DATABASE_URL := env.str("DATABASE_URL", default=None):
 # Direct connection for migrations and backups (never used by running app)
 DATABASE_URL_DIRECT = env.str("DATABASE_URL_DIRECT", default=None)
 
+# ALLOWED_HOSTS - accept Vercel URLs and custom domain
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+
 # WebAuthn configuration - fail fast if missing or invalid
 WEBAUTHN_RP_ID = env.str("WEBAUTHN_RP_ID")
 WEBAUTHN_RP_NAME = env.str("WEBAUTHN_RP_NAME")
@@ -82,8 +85,6 @@ SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
 
 # Proxy settings
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
 # Caching - use DatabaseCache for throttling (shared across instances)
 CACHES = {

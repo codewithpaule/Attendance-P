@@ -1,4 +1,10 @@
 {
+  "builds": [
+    {
+      "src": "index.py",
+      "use": "@vercel/python"
+    }
+  ],
   "routes": [
     {
       "src": "/static/(.*)",
@@ -10,7 +16,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/index.py"
+      "dest": "index.py"
     }
   ],
   "headers": [
