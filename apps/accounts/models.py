@@ -27,6 +27,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         ADVISOR = "ADVISOR", "Advisor"
         STUDENT = "STUDENT", "Student"
 
+    username = None  # Explicitly remove username field
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=255)
     role = models.CharField(max_length=20, choices=Role.choices)
