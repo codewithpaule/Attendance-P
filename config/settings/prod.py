@@ -3,46 +3,32 @@ from .base import *  # noqa: F401, F405
 DEBUG = False
 
 # Database configuration for Neon with transaction pooling
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env.str("DB_NAME", "pomsom"),
-        "USER": env.str("DB_USER", "pomsom"),
-        "PASSWORD": env.str("DB_PASSWORD"),
-        "HOST": env.str("DB_HOST", "localhost"),
-        "PORT": env.str("DB_PORT", "5432"),
-        "CONN_MAX_AGE": 0,  # Required for transaction pooling
-        "OPTIONS": {
-            "sslmode": "require",
-            "connect_timeout": 10,  # Tolerate cold starts
-        },
-    }
-}
-
-# Override with DATABASE_URL if provided (Neon pooled connection)
+# If DATABASE_URL is set, use it. Otherwise, use individual components.
 if DATABASE_URL := env.str("DATABASE_URL", default=None):
-    DATABASES["default"] = {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "pomsom",
-        "USER": "pomsom",
-        "PASSWORD": "",
-        "HOST": "",
-        "PORT": "",
-        "CONN_MAX_AGE": 0,
-        "OPTIONS": {
-            "sslmode": "require",
-        },
-        "ATOMIC_REQUESTS": True,
-    }
-    # Use DATABASE_URL for the connection
     import dj_database_url
-
-    DATABASES["default"] = dj_database_url.config(
-        DATABASE_URL,
-        conn_max_age=0,
-        ssl_require=True,
-        conn_health_checks=True,
-    )
+    DATABASES = {
+        "default": dj_database_url.config(
+            DATABASE_URL,
+            conn_max_age=0,
+            ssl_require=True,
+            conn_health_checks=True,
+        )
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env.str("DB_NAME", "pomsom"),
+            "USER": env.str("DB_USER", "pomsom"),
+            "PASSWORD": env.str("DB_PASSWORD"),
+            "HOST": env.str("DB_HOST", "localhost"),
+            "PORT": env.str("DB_PORT", "5432"),
+            "CONN_MAX_AGE": 0,
+            "OPTIONS": {
+                "sslmode": "require",
+                "connect_timeout": 10,
+            },
+        }
+    }
 
 # Direct connection for migrations and backups (never used by running app)
 DATABASE_URL_DIRECT = env.str("DATABASE_URL_DIRECT", default=None)
