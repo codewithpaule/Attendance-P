@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Check In{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-white p-4">
+  <div class="max-w-md mx-auto">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Check In</h1>
+
+    <div id="scan-step" class="space-y-4">
+      <p class="text-gray-600">Scan the QR code displayed by your teacher to begin check-in.</p>
+
+      <input
+        type="text"
+        id="qr-input"
+        placeholder="Enter QR code or scan"
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+      />
+
+      <button
+        id="scan-btn"
+        class="w-full bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        Scan QR Code
+      </button>
+    </div>
+
+    <div id="location-step" class="space-y-4 hidden">
+      <p class="text-gray-600">We need your location to verify you are in the classroom.</p>
+
+      <button
+        id="location-btn"
+        class="w-full bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        Share Location
+      </button>
+
+      <p id="location-error" class="text-red-600 hidden"></p>
+    </div>
+
+    <div id="passkey-step" class="space-y-4 hidden">
+      <p class="text-gray-600">Use your passkey (fingerprint, face, or PIN) to verify your identity.</p>
+
+      <button
+        id="passkey-btn"
+        class="w-full bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        Verify with Passkey
+      </button>
+
+      <p id="passkey-error" class="text-red-600 hidden"></p>
+    </div>
+
+    <div id="success-step" class="hidden">
+      <div class="text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">Check-in Complete</h2>
+        <p class="text-gray-600">You have been marked as present.</p>
+      </div>
+    </div>
+
+    <div id="error-step" class="hidden">
+      <div class="text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">Check-in Failed</h2>
+        <p id="error-message" class="text-gray-600 mb-4"></p>
+        <button
+          id="retry-btn"
+          class="w-full bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-gray-800 text-white px-4 py-3 rounded-lg hidden">
+      <p id="toast-message"></p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { checkin } from '/static/js/checkin.js';
+
+  checkin.init();
+</script>
+{% endblock %}

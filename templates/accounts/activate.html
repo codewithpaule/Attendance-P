@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Activate Account - Ofeeee{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 500px; margin: 50px auto;">
+    <h1 style="margin-bottom: 24px; color: #4a4a3a;">Activate Your Account</h1>
+
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    <div id="success-message" class="alert alert-success" style="display: none;"></div>
+
+    <form id="activate-form">
+        <div class="form-group">
+            <label for="student-number">Student Number</label>
+            <input type="text" id="student-number" name="student_number" required>
+        </div>
+
+        <div class="form-group">
+            <label for="activation-code">Activation Code</label>
+            <input type="text" id="activation-code" name="code" required placeholder="8-character code">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required minlength="8">
+        </div>
+
+        <div class="form-group">
+            <label for="passkey-label">Passkey Label</label>
+            <input type="text" id="passkey-label" name="label" value="Default" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+            Register Passkey & Activate
+        </button>
+    </form>
+
+    <p style="margin-top: 20px; text-align: center; color: #6a6a5a;">
+        <a href="/login/" style="color: #4a4a3a;">Back to login</a>
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    document.getElementById('activate-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        setButtonLoading(btn, true);
+
+        const studentNumber = document.getElementById('student-number').value;
+        const code = document.getElementById('activation-code').value;
+        const password = document.getElementById('password').value;
+        const label = document.getElementById('passkey-label').value;
+
+        try {
+            const createOptions = await fetch('/api/v1/passkeys/register/begin-activation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_number: studentNumber }),
+            }).then(r => r.json());
+
+            const credential = await navigator.credentials.create({
+                publicKey: {
+                    challenge: new TextEncoder().encode(createOptions.challenge),
+                    rp: {
+                        id: createOptions.rp_id,
+                        name: createOptions.rp_name,
+                    },
+                    user: {
+                        id: new TextEncoder().encode(createOptions.user_id),
+                        name: createOptions.user_name,
+                        displayName: createOptions.display_name,
+                    },
+                    pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+                    authenticatorSelection: {
+                        authenticatorAttachment: 'platform',
+                        userVerification: 'preferred',
+                    },
+                }
+            });
+
+            const response = await fetch('/api/v1/auth/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_number: studentNumber,
+                    code: code,
+                    password: password,
+                    credential_id: credential.id,
+                    client_data_json: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON))),
+                    attestation_object: btoa(String.fromCharCode(...new Uint8Array(credential.response.attestationObject))),
+                    label: label,
+                    challenge: createOptions.challenge,
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || 'Activation failed');
+            }
+
+            document.getElementById('success-message').textContent = 'Account activated successfully!';
+            document.getElementById('success-message').style.display = 'block';
+            showToast('Account activated!', 'success');
+
+            setTimeout(() => window.location.href = '/login/', 2000);
+        } catch (error) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+            showToast(error.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    });
+</script>
+{% endblock %}

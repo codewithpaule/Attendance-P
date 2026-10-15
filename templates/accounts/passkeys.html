@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Passkeys - Ofeeee{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 50px auto;">
+    <h1 style="margin-bottom: 24px; color: #4a4a3a;">Your Passkeys</h1>
+
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    <div id="success-message" class="alert alert-success" style="display: none;"></div>
+
+    <div id="passkeys-list">
+        <p style="color: #6a6a5a;">Loading...</p>
+    </div>
+
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e0e0d8;">
+        <h2 style="margin-bottom: 16px; color: #4a4a3a; font-size: 18px;">Add New Passkey</h2>
+
+        <form id="add-passkey-form">
+            <div class="form-group">
+                <label for="new-passkey-label">Label</label>
+                <input type="text" id="new-passkey-label" name="label" required placeholder="e.g., iPhone, MacBook">
+            </div>
+
+            <button type="submit" class="btn btn-success">
+                Add Passkey
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    async function loadPasskeys() {
+        try {
+            const response = await fetch('/api/v1/passkeys/');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error('Failed to load passkeys');
+            }
+
+            const listDiv = document.getElementById('passkeys-list');
+
+            if (data.length === 0) {
+                listDiv.innerHTML = '<p style="color: #6a6a5a;">No passkeys registered yet.</p>';
+                return;
+            }
+
+            listDiv.innerHTML = data.map(pk => `
+                <div style="padding: 16px; border: 1px solid #e0e0d8; border-radius: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #4a4a3a;">${pk.label}</strong>
+                        <div style="font-size: 12px; color: #8a8a7a; margin-top: 4px;">
+                            Added: ${new Date(pk.created_at).toLocaleDateString()}
+                            ${pk.last_used_at ? ` • Last used: ${new Date(pk.last_used_at).toLocaleDateString()}` : ''}
+                        </div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="revokePasskey('${pk.id}')">
+                        Revoke
+                    </button>
+                </div>
+            `).join('');
+        } catch (error) {
+            document.getElementById('passkeys-list').innerHTML = `<p class="alert-error">${error.message}</p>`;
+        }
+    }
+
+    window.revokePasskey = async (id) => {
+        if (!confirm('Are you sure you want to revoke this passkey?')) return;
+
+        try {
+            const response = await fetch(`/api/v1/passkeys/${id}/revoke`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error?.message || 'Failed to revoke passkey');
+            }
+
+            showToast('Passkey revoked', 'success');
+            loadPasskeys();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    };
+
+    document.getElementById('add-passkey-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        setButtonLoading(btn, true);
+
+        const label = document.getElementById('new-passkey-label').value;
+
+        try {
+            const createOptions = await fetch('/api/v1/passkeys/register/begin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            }).then(r => r.json());
+
+            const credential = await navigator.credentials.create({
+                publicKey: {
+                    challenge: new TextEncoder().encode(createOptions.challenge),
+                    rp: {
+                        id: createOptions.rp_id,
+                        name: createOptions.rp_name,
+                    },
+                    user: {
+                        id: new TextEncoder().encode(createOptions.user_id),
+                        name: createOptions.user_name,
+                        displayName: createOptions.display_name,
+                    },
+                    pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+                    authenticatorSelection: {
+                        userVerification: 'preferred',
+                    },
+                }
+            });
+
+            const response = await fetch('/api/v1/passkeys/register/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    credential_id: credential.id,
+                    client_data_json: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON))),
+                    attestation_object: btoa(String.fromCharCode(...new Uint8Array(credential.response.attestationObject))),
+                    label: label,
+                    challenge: createOptions.challenge,
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || 'Failed to register passkey');
+            }
+
+            document.getElementById('new-passkey-label').value = '';
+            showToast('Passkey added successfully!', 'success');
+            loadPasskeys();
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    });
+
+    loadPasskeys();
+</script>
+{% endblock %}

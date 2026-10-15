@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Session QR - Ofeeee{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px;">
+    <div class="card" style="text-align: center; max-width: 500px; width: 100%;">
+        <h1 style="margin-bottom: 20px; color: #4a4a3a;">Scan to Check In</h1>
+
+        <div id="error-message" class="alert alert-error" style="display: none;"></div>
+
+        <div id="qr-container" style="margin: 20px 0;">
+            <div style="width: 300px; height: 300px; background: #f0f0ea; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+                <span style="color: #8a8a7a;">Loading QR code...</span>
+            </div>
+        </div>
+
+        <div style="margin: 20px 0; padding: 20px; background: #f5f5f0; border-radius: 8px;">
+            <div style="font-size: 24px; font-weight: bold; color: #4a4a3a;" id="checkin-count">0</div>
+            <div style="color: #6a6a5a; font-size: 14px;">Students checked in</div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button id="close-session-btn" class="btn btn-warning">
+                Close Session
+            </button>
+        </div>
+
+        <p style="margin-top: 20px; color: #8a8a7a; font-size: 12px;">
+            QR refreshes every 10 seconds
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    const sessionId = '{{ session_id }}';
+    let refreshInterval;
+
+    async function loadQRToken() {
+        try {
+            const response = await fetch(`/api/v1/sessions/${sessionId}/qr-token`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || 'Failed to load QR token');
+            }
+
+            const url = `https://${window.location.host}/c/${sessionId}/?t=${data.token}`;
+            
+            const qrContainer = document.getElementById('qr-container');
+            qrContainer.innerHTML = `<div id="qrcode" style="width: 300px; height: 300px; margin: 0 auto;"></div>`;
+
+            // Use qrcode.js library (will load from CDN)
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+            script.onload = () => {
+                QRCode.toCanvas(document.getElementById('qrcode'), url, {
+                    width: 300,
+                    margin: 2,
+                    color: {
+                        dark: '#4a4a3a',
+                        light: '#ffffff',
+                    }
+                });
+            };
+            document.head.appendChild(script);
+        } catch (error) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function updateCheckinCount() {
+        try {
+            // This would be implemented in a later phase
+            // For now, we'll just show a placeholder
+            const count = Math.floor(Math.random() * 20);
+            document.getElementById('checkin-count').textContent = count;
+        } catch (error) {
+            console.error('Failed to update count:', error);
+        }
+    }
+
+    function startPolling() {
+        loadQRToken();
+        updateCheckinCount();
+        refreshInterval = setInterval(() => {
+            loadQRToken();
+            updateCheckinCount();
+        }, 10000);
+    }
+
+    document.getElementById('close-session-btn').addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to close this session?')) return;
+
+        const btn = document.getElementById('close-session-btn');
+        setButtonLoading(btn, true);
+
+        try {
+            const headcount = prompt('Enter headcount:', '0');
+            if (headcount === null) {
+                setButtonLoading(btn, false);
+                return;
+            }
+
+            const response = await fetch(`/api/v1/sessions/${sessionId}/close`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ headcount: parseInt(headcount) })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || 'Failed to close session');
+            }
+
+            showToast('Session closed successfully!', 'success');
+            clearInterval(refreshInterval);
+            
+            // Redirect to review page (to be implemented)
+            window.location.href = '/';
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    });
+
+    startPolling();
+</script>
+{% endblock %}

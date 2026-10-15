@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Ofeeee{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 100px auto;">
+    <h1 style="margin-bottom: 24px; color: #4a4a3a;">Login</h1>
+
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+
+    <form id="login-form">
+        <div class="form-group">
+            <label for="credential-id">Passkey Credential</label>
+            <input type="text" id="credential-id" readonly placeholder="Use your passkey device">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+            Sign in with Passkey
+        </button>
+    </form>
+
+    <p style="margin-top: 20px; text-align: center; color: #6a6a5a;">
+        <a href="/activate/" style="color: #4a4a3a;">Activate your account</a>
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        setButtonLoading(btn, true);
+
+        try {
+            const credential = await navigator.credentials.get({
+                publicKey: {
+                    challenge: new TextEncoder().encode('challenge-from-server'),
+                    rpId: window.location.hostname,
+                    allowCredentials: [],
+                    userVerification: 'preferred',
+                }
+            });
+
+            const response = await fetch('/api/v1/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    credential_id: credential.id,
+                    client_data_json: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON))),
+                    authenticator_data: btoa(String.fromCharCode(...new Uint8Array(credential.response.authenticatorData))),
+                    signature: btoa(String.fromCharCode(...new Uint8Array(credential.response.signature))),
+                    challenge: 'challenge-from-server',
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || 'Login failed');
+            }
+
+            showToast('Login successful!', 'success');
+            setTimeout(() => window.location.href = '/', 1000);
+        } catch (error) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+            showToast(error.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    });
+</script>
+{% endblock %}
