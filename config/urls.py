@@ -11,5 +11,5 @@ urlpatterns = [
     path("api/v1/", include("apps.attendance.api.urls")),
     path("", include("apps.accounts.web.urls")),
     path("", include("apps.attendance.web.urls")),
-    path("healthz/", include("apps.core.api.urls")),
+    path("", include("apps.core.api.urls")),
 ]

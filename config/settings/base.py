@@ -185,4 +185,12 @@ WEBAUTHN_RP_ID = env.str("WEBAUTHN_RP_ID", default="localhost")
 WEBAUTHN_RP_NAME = env.str("WEBAUTHN_RP_NAME", default="Ofeeee")
 WEBAUTHN_ORIGIN = env.str("WEBAUTHN_ORIGIN", default="http://localhost:8000")
 
-QR_TOKEN_MAX_AGE_SECONDS = env.int("QR_TOKEN_MAX_AGE_SECONDS", default=20)
+# Caching configuration
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+
+# Health endpoints
+INTERNAL_IPS = env.list("INTERNAL_IPS", default=["127.0.0.1"])
