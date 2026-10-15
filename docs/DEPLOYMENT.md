@@ -43,9 +43,9 @@ This guide covers deploying the POMSOM attendance system to Vercel with Neon Pos
      - `JOBS_SECRET`: Generate with `openssl rand -hex 32`
      - `DATABASE_URL`: Your Neon pooled connection string
      - `DATABASE_URL_DIRECT`: Your Neon direct connection string
-     - `WEBAUTHN_RP_ID`: Your domain (e.g., yourdomain.com)
+     - `WEBAUTHN_RP_ID`: Your domain (e.g., pomsom.akili.com.ng)
      - `WEBAUTHN_RP_NAME`: "POMSOM"
-     - `WEBACKN_ORIGIN`: https://yourdomain.com
+     - `WEBACKN_ORIGIN`: https://pomsom.akili.com.ng
      - `IS_PREVIEW`: False for production, True for preview
      - `BACKUP_AGE_RECIPIENT`: Generate with `age-keygen` (see backup setup)
      - `RESEND_API_KEY`: Your Resend API key
@@ -61,7 +61,7 @@ This guide covers deploying the POMSOM attendance system to Vercel with Neon Pos
 
 1. Add your custom domain in Vercel:
    - Go to Settings > Domains
-   - Add your domain (e.g., yourdomain.com)
+   - Add your domain (e.g., pomsom.akili.com.ng)
    - Vercel will provide DNS records
 
 2. Configure DNS in Cloudflare:
@@ -82,7 +82,7 @@ This guide covers deploying the POMSOM attendance system to Vercel with Neon Pos
 
 2. Add the following secrets:
    - `JOBS_SECRET`: Same as Vercel
-   - `APP_URL`: Your production URL (e.g., https://yourdomain.com)
+   - `APP_URL`: Your production URL (e.g., https://pomsom.akili.com.ng)
    - `DATABASE_URL_DIRECT`: Same as Vercel
    - `BACKUP_AGE_RECIPIENT`: Your age public key (generate with `age-keygen`)
 
@@ -118,20 +118,20 @@ Note: This only needs to be done once. In production, this can be done via a one
 ## Step 7: Verify Deployment
 
 1. Check the health endpoint:
-   - Visit https://yourdomain.com/healthz
+   - Visit https://pomsom.akili.com.ng/healthz
    - Should return `{"status": "ok"}`
 
 2. Check the readiness endpoint:
-   - Visit https://yourdomain.com/readyz
+   - Visit https://pomsom.akili.com.ng/readyz
    - Should return `{"status": "ok", "database": "connected"}`
 
 3. Test the admin panel:
-   - Visit https://yourdomain.com/admin
+   - Visit https://pomsom.akili.com.ng/admin
    - Log in with your superuser account
    - Verify it loads correctly
 
 4. Test static files:
-   - Visit https://yourdomain.com/static/css/ (should show directory listing or 404, but paths work)
+   - Visit https://pomsom.akili.com.ng/static/css/ (should show directory listing or 404, but paths work)
    - Verify admin CSS/JS loads
 
 ## Step 8: Configure Jobs

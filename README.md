@@ -155,42 +155,6 @@ pomsom/
 └── .github/           # GitHub Actions workflows
 ```
 
-## Build Plan
-
-The project is developed in phases, with each phase stopping for approval:
-
-- **Phase 0**: Foundation (repo skeleton, custom User, core app, audit, Docker, CI)
-- **Phase 1**: Accounts (roles, CSV import, activation, login, passkeys, recovery)
-- **Phase 2**: Academics (models, admin, selectors, eligibility policy, imports)
-- **Phase 3**: Sessions and QR (state machine, open/close services, token adapter, teacher QR page)
-- **Phase 4**: Check-in (begin/complete, decision pipeline, detectors, student check-in page)
-- **Phase 5**: Review and finalization (flagged queue, headcount, spot checks, auto-finalize)
-- **Phase 6**: Early warning (risk domain, evaluation command, outbox, Resend adapter, dashboards)
-- **Phase 7**: Hardening and deployment (throttling, security headers, purge command, Vercel config)
-
-## Deployment
-
-This application is designed for deployment on Vercel with Neon Postgres. See `docs/DEPLOYMENT.md` for detailed deployment instructions and `docs/RUNBOOK.md` for operational procedures.
-
-### First Deployment Checklist
-
-Before deploying to production for the first time:
-
-- [ ] Set up Neon Postgres project (production and preview branches)
-- [ ] Connect GitHub repository to Vercel
-- [ ] Configure all environment variables in Vercel (see `.env.example`)
-- [ ] Set up custom domain with Cloudflare DNS-only records
-- [ ] Configure GitHub Actions secrets (JOBS_SECRET, APP_URL, DATABASE_URL_DIRECT, BACKUP_AGE_RECIPIENT)
-- [ ] Run initial migration via GitHub Actions (migrate.yml)
-- [ ] Create database cache table (`python manage.py createcachetable`)
-- [ ] Verify health endpoints (`/healthz`, `/readyz`)
-- [ ] Test admin panel loads correctly
-- [ ] Test static files load correctly
-- [ ] Verify WebAuthn works on production domain
-- [ ] Test job endpoints manually via GitHub Actions
-- [ ] Verify Resend email integration
-- [ ] Document initial data setup (admin user, terms, rooms, courses)
-
 ### Environment Variables
 
 See `.env.example` for the complete list of required environment variables.
