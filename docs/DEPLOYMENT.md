@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers deploying the Ofeeee attendance system to Vercel with Neon Postgres.
+This guide covers deploying the POMSOM attendance system to Vercel with Neon Postgres.
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ This guide covers deploying the Ofeeee attendance system to Vercel with Neon Pos
      - `DATABASE_URL`: Your Neon pooled connection string
      - `DATABASE_URL_DIRECT`: Your Neon direct connection string
      - `WEBAUTHN_RP_ID`: Your domain (e.g., yourdomain.com)
-     - `WEBAUTHN_RP_NAME`: "Ofeeee"
+     - `WEBAUTHN_RP_NAME`: "POMSOM"
      - `WEBACKN_ORIGIN`: https://yourdomain.com
      - `IS_PREVIEW`: False for production, True for preview
      - `BACKUP_AGE_RECIPIENT`: Generate with `age-keygen` (see backup setup)

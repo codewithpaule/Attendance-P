@@ -41,6 +41,15 @@ include = ["apps*", "config*"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "migrations",
+]
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -59,16 +68,6 @@ ignore = [
     "F403",    # star imports (used in Django settings)
     "F405",    # star imports (used in Django settings)
 ]
-exclude = [
-    ".git",
-    ".venv",
-    "venv",
-    "__pycache__",
-    "migrations",
-]
-
-[tool.ruff.isort]
-known-first-party = ["config", "apps"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["config", "apps"]

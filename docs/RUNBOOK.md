@@ -1,6 +1,6 @@
 # Operations Runbook
 
-This runbook covers common operational tasks and procedures for the Ofeeee attendance system.
+This runbook covers common operational tasks and procedures for the POMSOM attendance system.
 
 ## Neon Cold Start Behavior
 

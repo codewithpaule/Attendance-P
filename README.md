@@ -56,7 +56,7 @@ Each Django app follows the same internal structure:
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd ofeeee
+cd pomsome
 ```
 
 2. Create a virtual environment:

@@ -114,7 +114,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Ofeeee Attendance API",
+    "TITLE": "POMSOM Attendance API",
     "DESCRIPTION": "University attendance system with QR codes and passkeys",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -182,7 +182,7 @@ EMAIL_DAILY_BUDGET = env.int("EMAIL_DAILY_BUDGET", default=90)
 MAX_ATTEMPTS = 3
 
 WEBAUTHN_RP_ID = env.str("WEBAUTHN_RP_ID", default="localhost")
-WEBAUTHN_RP_NAME = env.str("WEBAUTHN_RP_NAME", default="Ofeeee")
+WEBAUTHN_RP_NAME = env.str("WEBAUTHN_RP_NAME", default="POMSOM")
 WEBAUTHN_ORIGIN = env.str("WEBAUTHN_ORIGIN", default="http://localhost:8000")
 
 # Caching configuration

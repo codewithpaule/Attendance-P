@@ -50,7 +50,7 @@ class TestJobRun(TestCase):
         )
 
         # Second claim should fail
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017
             JobRun.objects.create(
                 name="concurrent-test-job",
                 status=JobRunStatus.RUNNING,
