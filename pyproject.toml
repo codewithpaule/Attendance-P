@@ -99,12 +99,6 @@ disallow_untyped_defs = false
 [tool.django-stubs]
 django_settings_module = "config.settings.dev"
 
-[tool.vercel]
-buildCommand = "pip install -e ."
-outputDirectory = "."
-installCommand = "pip install -e ."
-devCommand = "python manage.py runserver 0.0.0.0:8000"
-
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]

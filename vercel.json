@@ -1,10 +1,4 @@
 {
-  "builds": [
-    {
-      "src": "manage.py",
-      "use": "@vercel/python"
-    }
-  ],
   "routes": [
     {
       "src": "/static/(.*)",
@@ -16,14 +10,9 @@
     },
     {
       "src": "/(.*)",
-      "dest": "manage.py"
+      "dest": "/index.py"
     }
   ],
-  "functions": {
-    "api/__init__.py": {
-      "maxDuration": 30
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
