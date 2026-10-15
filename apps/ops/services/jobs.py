@@ -34,22 +34,23 @@ def run_job(name: str) -> dict:
         raise NotFoundError("JOB_NOT_FOUND", f"Job '{name}' is not registered")
 
     # Mark expired leases as failed
+    clock = DefaultClock()
     JobRun.objects.filter(
         name=name,
         status=JobRunStatus.RUNNING,
-        lease_expires_at__lt=DefaultClock.now(),
-    ).update(status=JobRunStatus.FAILED, finished_at=DefaultClock.now())
+        lease_expires_at__lt=clock.now(),
+    ).update(status=JobRunStatus.FAILED, finished_at=clock.now())
 
     # Try to claim the lease
     try:
         job_run = JobRun.objects.create(
             name=name,
             status=JobRunStatus.RUNNING,
-            lease_expires_at=DefaultClock.now() + timedelta(seconds=settings.JOB_TIME_BUDGET_SECONDS),
+            lease_expires_at=clock.now() + timedelta(seconds=settings.JOB_TIME_BUDGET_SECONDS),
         )
-    except Exception:
+    except Exception as err:
         # Unique constraint violation - job already running
-        raise ConflictError("JOB_ALREADY_RUNNING", f"Job '{name}' is already running")
+        raise ConflictError("JOB_ALREADY_RUNNING", f"Job '{name}' is already running") from err
 
     # Record job start
     record(
@@ -67,7 +68,7 @@ def run_job(name: str) -> dict:
 
         # Mark as succeeded
         job_run.status = JobRunStatus.SUCCEEDED
-        job_run.finished_at = DefaultClock.now()
+        job_run.finished_at = clock.now()
         job_run.stats = stats
         job_run.save()
 
@@ -83,7 +84,7 @@ def run_job(name: str) -> dict:
     except JobLeaseExpiredError:
         # Mark as failed due to lease expiry
         job_run.status = JobRunStatus.FAILED
-        job_run.finished_at = DefaultClock.now()
+        job_run.finished_at = clock.now()
         job_run.stats = {"error": "Lease expired"}
         job_run.save()
 
@@ -99,7 +100,7 @@ def run_job(name: str) -> dict:
     except Exception as err:
         # Mark as failed due to error
         job_run.status = JobRunStatus.FAILED
-        job_run.finished_at = DefaultClock.now()
+        job_run.finished_at = clock.now()
         job_run.stats = {"error": str(err)}
         job_run.save()
 

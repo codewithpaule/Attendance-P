@@ -3,11 +3,11 @@ version: "3.8"
 services:
   db:
     image: postgres:16-alpine
-    container_name: ofeeee_db
+    container_name: pomsom_db
     environment:
-      POSTGRES_DB: ofeeee
-      POSTGRES_USER: ofeeee
-      POSTGRES_PASSWORD: ofeeee
+      POSTGRES_DB: pomsom
+      POSTGRES_USER: pomsom
+      POSTGRES_PASSWORD: pomsom
     ports:
       - "5432:5432"
     volumes:
@@ -15,14 +15,14 @@ services:
 
   web:
     build: .
-    container_name: ofeeee_web
+    container_name: pomsom_web
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://ofeeee:ofeeee@db:5432/ofeeee
+      - DATABASE_URL=postgresql://pomsom:pomsom@db:5432/pomsom
       - DEBUG=True
     depends_on:
       - db

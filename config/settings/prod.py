@@ -6,8 +6,8 @@ DEBUG = False
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": env.str("DB_NAME", "ofeeee"),
-        "USER": env.str("DB_USER", "ofeeee"),
+        "NAME": env.str("DB_NAME", "pomsom"),
+        "USER": env.str("DB_USER", "pomsom"),
         "PASSWORD": env.str("DB_PASSWORD"),
         "HOST": env.str("DB_HOST", "localhost"),
         "PORT": env.str("DB_PORT", "5432"),
@@ -23,8 +23,8 @@ DATABASES = {
 if DATABASE_URL := env.str("DATABASE_URL", default=None):
     DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "ofeeee",
-        "USER": "ofeeee",
+        "NAME": "pomsom",
+        "USER": "pomsom",
         "PASSWORD": "",
         "HOST": "",
         "PORT": "",
@@ -42,7 +42,6 @@ if DATABASE_URL := env.str("DATABASE_URL", default=None):
         conn_max_age=0,
         ssl_require=True,
         conn_health_checks=True,
-        conn_max_age=0,
     )
 
 # Direct connection for migrations and backups (never used by running app)
@@ -61,10 +60,7 @@ if not WEBAUTHN_ORIGIN.startswith("https://"):
 
 # Disable WebAuthn on preview deployments
 IS_PREVIEW = env.bool("IS_PREVIEW", default=False)
-if IS_PREVIEW:
-    WEBAUTHN_ENABLED = False
-else:
-    WEBAUTHN_ENABLED = True
+WEBAUTHN_ENABLED = not IS_PREVIEW
 
 # Vercel detection
 BEHIND_VERCEL = env.bool("BEHIND_VERCEL", default=True)

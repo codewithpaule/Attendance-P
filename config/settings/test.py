@@ -16,3 +16,6 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 CELERY_TASK_ALWAYS_EAGER = True
+
+JOBS_SECRET = "test-jobs-secret"
+JOB_TIME_BUDGET_SECONDS = 25

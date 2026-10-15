@@ -35,7 +35,7 @@ jobs:
           BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
         run: |
           DATE=$(date +%Y-%m-%d)
-          BACKUP_FILE="ofeee-backup-${DATE}.sql"
+          BACKUP_FILE="pomsom-backup-${DATE}.sql"
           
           # Create backup
           pg_dump "$DATABASE_URL_DIRECT" > "$BACKUP_FILE"

@@ -1,0 +1,11 @@
+Django==5.0.14
+djangorestframework==3.17.0
+drf-spectacular==0.30.0
+psycopg-binary==3.3.6
+django-environ==0.13.0
+gunicorn==21.2.0
+whitenoise==6.11.0
+resend==2.47.0
+python-json-logger==2.0.7
+webauthn==3.0.1
+dj-database-url==3.1.2

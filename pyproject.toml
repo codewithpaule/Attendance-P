@@ -1,5 +1,5 @@
 [project]
-name = "ofeeee"
+name = "pomsom"
 version = "0.1.0"
 description = "University attendance system with QR codes and passkeys"
 requires-python = ">=3.12"
@@ -87,6 +87,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = "migrations.*"
