@@ -64,3 +64,7 @@ dmypy.json
 
 # Pre-commit
 .pre-commit-cache/
+
+# Setup scripts (keep private - contains admin credentials)
+setup_neon_admin.py
+create_admin.py
