@@ -1,5 +1,3 @@
-from django.conf import settings
-from django.http import HttpRequest
 from django.test import RequestFactory, TestCase, override_settings
 
 from apps.core.net import get_client_ip

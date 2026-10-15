@@ -1,0 +1,42 @@
+name: Jobs
+
+on:
+  schedule:
+    # Evaluate attendance risk daily at 01:00 UTC
+    - cron: "0 1 * * *"
+    # Dispatch notifications hourly
+    - cron: "0 * * * *"
+    # Purge location data Sundays at 03:00 UTC
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+jobs:
+  evaluate-attendance-risk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run evaluate-attendance-risk job
+        run: |
+          curl --fail --retry 3 --max-time 55 \
+            -H "Authorization: Bearer ${{ secrets.JOBS_SECRET }}" \
+            "${{ secrets.APP_URL }}/internal/jobs/evaluate-attendance-risk/"
+
+  dispatch-notifications:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run dispatch-notifications job
+        run: |
+          curl --fail --retry 3 --max-time 55 \
+            -H "Authorization: Bearer ${{ secrets.JOBS_SECRET }}" \
+            "${{ secrets.APP_URL }}/internal/jobs/dispatch-notifications/"
+
+  purge-location-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run purge-location-data job
+        run: |
+          curl --fail --retry 3 --max-time 55 \
+            -H "Authorization: Bearer ${{ secrets.JOBS_SECRET }}" \
+            "${{ secrets.APP_URL }}/internal/jobs/purge-location-data/"
