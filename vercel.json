@@ -1,7 +1,8 @@
 {
+  "version": 2,
   "builds": [
     {
-      "src": "index.py",
+      "src": "config/wsgi.py",
       "use": "@vercel/python"
     }
   ],
@@ -16,30 +17,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "index.py"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=86400; includeSubDomains"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "geolocation=(self), publickey-credentials-get=(self)"
-        }
-      ]
+      "dest": "config/wsgi.py"
     }
   ]
 }
