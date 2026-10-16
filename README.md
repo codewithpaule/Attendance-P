@@ -194,7 +194,7 @@ See `.env.example` for the complete list of required environment variables.
 3. Add teacher and student accounts under "Accounts" in Django Admin
    - Teachers use their email address and do not need a student number
    - Students require a student number
-   - Share the one-time activation code shown after each account is created
+   - The account holder receives an activation email; use the "Resend activation email" action for pending accounts if delivery fails
 4. Configure initial data:
    - Create academic terms (e.g., 2024/2025 First Semester)
    - Add rooms/buildings (e.g., Room 101, Lecture Hall A)
@@ -217,8 +217,8 @@ See `.env.example` for the complete list of required environment variables.
 **Login:** https://pomsom.akili.com.ng/login/
 
 **Teacher Account Setup:**
-1. Admin creates teacher account via CSV import or Admin panel
-2. Teacher receives activation code via email
+1. Admin creates the teacher under Accounts > Users in Django Admin
+2. Teacher receives an activation email with the one-time code and activation link
 3. Teacher visits https://pomsom.akili.com.ng/activate/
 4. Teacher enters activation code
 5. Teacher sets password (for recovery)
