@@ -22,10 +22,10 @@ def activate_user(
     """Activate an account using its email or legacy student number."""
     user = get_user_by_email(email) if email else get_user_by_student_number(student_number or "")
     if not user:
-        raise NotFoundError("User not found")
+        raise NotFoundError("USER_NOT_FOUND", "User not found")
 
     if user.is_active:
-        raise ConflictError("User already activated")
+        raise ConflictError("USER_ALREADY_ACTIVATED", "User already activated")
 
     activation_code = (
         ActivationCode.objects.filter(
@@ -38,13 +38,13 @@ def activate_user(
     )
 
     if not activation_code:
-        raise BadRequestError("No valid activation code found")
+        raise BadRequestError("ACTIVATION_CODE_NOT_FOUND", "No valid activation code found")
 
     if activation_code.expires_at < clock.now():
-        raise BadRequestError("Activation code expired")
+        raise BadRequestError("ACTIVATION_CODE_EXPIRED", "Activation code expired")
 
     if not verify_code(code, activation_code.code_hash):
-        raise BadRequestError("Invalid activation code")
+        raise BadRequestError("ACTIVATION_CODE_INVALID", "Invalid activation code")
 
     user.set_password(password)
     user.is_active = True

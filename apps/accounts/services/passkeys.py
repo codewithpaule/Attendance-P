@@ -1,4 +1,3 @@
-
 from django.db import transaction
 
 from apps.accounts.domain.webauthn import PasskeyRegistrationResponse
@@ -21,7 +20,7 @@ def register_passkey(
 ) -> PasskeyCredential:
     """Register a new passkey for a user."""
     if not user.is_active:
-        raise BadRequestError("User account is not active")
+        raise BadRequestError("USER_INACTIVE", "User account is not active")
 
     public_key, sign_count = webauthn_adapter.verify_registration_response(
         response=response,
@@ -52,7 +51,7 @@ def revoke_passkey(user: User, credential_id: str, clock: Clock) -> None:
     """Revoke a passkey."""
     credential = get_passkey(credential_id, user)
     if not credential:
-        raise NotFoundError("Passkey not found")
+        raise NotFoundError("PASSKEY_NOT_FOUND", "Passkey not found")
 
     credential.revoked_at = clock.now()
     credential.save()

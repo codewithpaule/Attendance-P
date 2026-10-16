@@ -23,7 +23,7 @@ def issue_recovery_code(
     """Issue a single-use recovery code for a user who lost all devices."""
     user = get_user_by_student_number(student_number)
     if not user:
-        raise NotFoundError("User not found")
+        raise NotFoundError("USER_NOT_FOUND", "User not found")
 
     if issuer.role not in (User.Role.ADMIN, User.Role.ADVISOR):
         from apps.core.exceptions import PermissionDeniedError
@@ -61,7 +61,7 @@ def use_recovery_code(
     """Use a recovery code to reset password and issue a new activation code."""
     user = get_user_by_student_number(student_number)
     if not user:
-        raise NotFoundError("User not found")
+        raise NotFoundError("USER_NOT_FOUND", "User not found")
 
     recovery_code = (
         ActivationCode.objects.filter(
@@ -74,13 +74,13 @@ def use_recovery_code(
     )
 
     if not recovery_code:
-        raise BadRequestError("No valid recovery code found")
+        raise BadRequestError("RECOVERY_CODE_NOT_FOUND", "No valid recovery code found")
 
     if recovery_code.expires_at < clock.now():
-        raise BadRequestError("Recovery code expired")
+        raise BadRequestError("RECOVERY_CODE_EXPIRED", "Recovery code expired")
 
     if not verify_code(code, recovery_code.code_hash):
-        raise BadRequestError("Invalid recovery code")
+        raise BadRequestError("RECOVERY_CODE_INVALID", "Invalid recovery code")
 
     user.set_password(new_password)
     user.save()

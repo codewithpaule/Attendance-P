@@ -1,4 +1,3 @@
-
 from django.contrib.auth import login
 from django.db import transaction
 
@@ -23,11 +22,11 @@ def login_with_passkey(
     """Authenticate user with passkey."""
     credential = get_active_passkey(credential_id)
     if not credential:
-        raise BadRequestError("Invalid credential")
+        raise BadRequestError("PASSKEY_INVALID", "Invalid credential")
 
     user = credential.user
     if not user.is_active:
-        raise BadRequestError("User account is not active")
+        raise BadRequestError("USER_INACTIVE", "User account is not active")
 
     new_sign_count = webauthn_adapter.verify_authentication_response(
         response=response,

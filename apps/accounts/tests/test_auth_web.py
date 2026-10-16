@@ -218,3 +218,37 @@ def test_activation_options_return_clear_not_found_for_unknown_email():
 
     assert response.status_code == 400
     assert json.loads(response.content)["error"]["message"] == "User not found"
+
+
+@pytest.mark.django_db
+def test_activate_already_active_account_returns_handled_conflict():
+    teacher = User.objects.create_user(
+        email="teacher@example.com",
+        password="test-password",
+        full_name="Teacher Example",
+        role=User.Role.TEACHER,
+        is_active=True,
+    )
+    client = APIClient()
+    options = client.post(
+        reverse("register_passkey_begin_for_activation"),
+        {"email": teacher.email},
+        format="json",
+    )
+    assert options.status_code == 200
+
+    response = client.post(
+        "/api/v1/auth/activate",
+        {
+            "email": teacher.email,
+            "code": "ABCD1234",
+            "password": "StrongPass!234",
+            "credential_id": "ZmFrZS1jcmVkZW50aWFs",
+            "client_data_json": "e30=",
+            "attestation_object": "AA==",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert json.loads(response.content)["error"]["message"] == "User already activated"
