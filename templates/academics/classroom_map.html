@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Classroom Location - POMSOM{% endblock %}
+
+{% block content %}
+<main class="classroom-page">
+    <header class="classroom-heading">
+        <div>
+            <p class="eyebrow">TEACHING SPACE</p>
+            <h1>Classroom location</h1>
+            <p class="heading-copy">Set the check-in point and boundary for your course.</p>
+        </div>
+    </header>
+
+    {% if not courses %}
+        <section class="empty-state">
+            <h2>No courses assigned</h2>
+            <p>Your classrooms will appear here once a course is assigned to your account.</p>
+        </section>
+    {% else %}
+        <form method="get" class="course-picker">
+            <label for="course-picker">Course</label>
+            <select id="course-picker" name="course" onchange="this.form.submit()">
+                {% for course in courses %}
+                    <option value="{{ course.id }}" {% if course.id == selected_course.id %}selected{% endif %}>
+                        {{ course.code }} · {{ course.title }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+
+        <form method="post" class="location-layout" id="classroom-form">
+            {% csrf_token %}
+            <input type="hidden" name="course_id" value="{{ selected_course.id }}">
+            {{ form.latitude }}
+            {{ form.longitude }}
+            {{ form.radius_m }}
+
+            <section class="map-panel" aria-label="Classroom map">
+                <div class="map-topline">
+                    <div>
+                        <h2>Pin the classroom</h2>
+                        <p>Click the map or drag the marker to set the center.</p>
+                    </div>
+                    <span class="map-status" id="map-status" aria-live="polite">
+                        {% if has_location %}Location set{% else %}Choose a point{% endif %}
+                    </span>
+                </div>
+                <div id="classroom-map"
+                    data-latitude="{{ map_latitude }}"
+                    data-longitude="{{ map_longitude }}"
+                    data-radius="{{ radius }}"
+                    data-has-location="{{ has_location|yesno:'true,false' }}"
+                    aria-label="Interactive map. Select a point to pin your classroom."></div>
+                <div class="coordinates-line">
+                    <span>PINNED COORDINATES</span>
+                    <output id="coordinate-readout">
+                        {% if has_location %}{{ map_latitude }}, {{ map_longitude }}{% else %}No point selected{% endif %}
+                    </output>
+                </div>
+            </section>
+
+            <aside class="location-controls">
+                <p class="eyebrow">CLASS CHECK-IN AREA</p>
+                <h2>Location details</h2>
+                <div class="field-group">
+                    <label for="id_room_name">{{ form.room_name.label }}</label>
+                    {{ form.room_name }}
+                    {% for error in form.room_name.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="field-group radius-field">
+                    <div class="radius-heading">
+                        <label for="radius-slider">Allowed radius</label>
+                        <output for="radius-slider" id="radius-readout">{{ radius }} m</output>
+                    </div>
+                    <input id="radius-slider" type="range" min="10" max="2000" step="10" value="{{ radius }}">
+                    <div class="range-labels"><span>10 m</span><span>2,000 m</span></div>
+                    {% for error in form.radius_m.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+                </div>
+                {% for error in form.latitude.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+                {% for error in form.longitude.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+                <p class="privacy-note">Only this classroom’s fixed check-in boundary is saved here. Student location is collected separately during check-in.</p>
+                <button class="save-location" id="save-location" type="submit" {% if not has_location %}disabled{% endif %}>
+                    Save classroom location
+                </button>
+            </aside>
+        </form>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block scripts %}
+{% if courses %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="{% static 'css/classroom_map.css' %}">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<script src="{% static 'js/classroom_map.js' %}" defer></script>
+{% endif %}
+{% endblock %}

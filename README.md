@@ -223,14 +223,15 @@ See `.env.example` for the complete list of required environment variables.
 
 **Daily Class Session:**
 1. Log in with passkey at https://pomsom.akili.com.ng/login/
-2. Navigate to "My Sessions" or create new session
-3. Select course and room
-4. Open session for check-ins
-5. Display QR code on projector screen
-6. Monitor student check-ins in real-time
-7. Close session after class
-8. Review flagged check-ins (suspicious activity)
-9. Finalize attendance (approve/reject flagged entries)
+2. Open `/teacher/classrooms/` to set your course's classroom point and check-in radius on the map
+3. Navigate to "My Sessions" or create new session
+4. Select course and room
+5. Open session for check-ins
+6. Display QR code on projector screen
+7. Monitor student check-ins in real-time
+8. Close session after class
+9. Review flagged check-ins (suspicious activity)
+10. Finalize attendance (approve/reject flagged entries)
 
 **Teacher Dashboard:**
 - View upcoming sessions
@@ -430,7 +431,6 @@ student2@university.edu,CSC101
 
 ## Future Enhancements
 
-- **Map Interface for Classroom Locations**: Visual map to pin classroom locations and draw radius circles instead of manual coordinate entry
 - **Push Notifications**: Real-time alerts for students when check-in is about to open
 - **Offline Mode**: Allow check-in queuing when internet is poor, sync when reconnected
 - **Multi-Language Support**: Support for local languages
