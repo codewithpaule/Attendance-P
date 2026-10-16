@@ -44,6 +44,9 @@
 {% block scripts %}
 <script type="module">
     function decodeBase64Url(value) {
+        if (typeof value !== 'string' || !value) {
+            throw new Error('Passkey setup details were missing. Request a fresh activation email or contact your administrator.');
+        }
         const base64 = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
         return Uint8Array.from(atob(base64), character => character.charCodeAt(0));
     }
@@ -59,11 +62,20 @@
         const label = document.getElementById('passkey-label').value;
 
         try {
-            const createOptions = await fetch('/api/v1/passkeys/register/begin-activation', {
+            const optionsResponse = await fetch('/api/v1/passkeys/register/begin-activation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email }),
-            }).then(r => r.json());
+            });
+            const createOptions = await optionsResponse.json();
+            if (!optionsResponse.ok) {
+                throw new Error(
+                    createOptions.error?.message || createOptions.detail || 'Could not start account activation.'
+                );
+            }
+            if (!createOptions.challenge || !createOptions.rp_id || !createOptions.user_id) {
+                throw new Error('Passkey setup details were missing. Request a fresh activation email or contact your administrator.');
+            }
 
             const credential = await navigator.credentials.create({
                 publicKey: {

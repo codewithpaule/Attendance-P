@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -173,3 +175,17 @@ def test_activation_options_still_accept_legacy_student_number():
 
     assert response.status_code == 200
     assert response.data["user_name"] == student.email
+
+
+@pytest.mark.django_db
+def test_activation_options_return_clear_not_found_for_unknown_email():
+    client = APIClient()
+
+    response = client.post(
+        reverse("register_passkey_begin_for_activation"),
+        {"email": "missing@example.invalid"},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert json.loads(response.content)["error"]["message"] == "User not found"
