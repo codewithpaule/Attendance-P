@@ -6,8 +6,10 @@ from rest_framework.response import Response
 
 from apps.accounts.adapters.webauthn import WebAuthnAdapterImpl
 from apps.accounts.api.serializers import (
+    ActivationIdentitySerializer,
     ActivationRequestSerializer,
     IssueRecoveryCodeSerializer,
+    LoginBeginRequestSerializer,
     LoginRequestSerializer,
     PasskeySerializer,
     RegisterPasskeyRequestSerializer,
@@ -18,8 +20,15 @@ from apps.accounts.domain.webauthn import (
     PasskeyAuthenticationResponse,
     PasskeyRegistrationResponse,
 )
+from apps.accounts.exceptions import BadRequestError, NotFoundError
 from apps.accounts.models import User
-from apps.accounts.selectors.functions import list_passkeys as list_passkeys_selector
+from apps.accounts.selectors.functions import (
+    get_user_by_email,
+    get_user_by_student_number,
+)
+from apps.accounts.selectors.functions import (
+    list_passkeys as list_passkeys_selector,
+)
 from apps.accounts.services.activate import activate_user
 from apps.accounts.services.import_users import import_users_from_csv
 from apps.accounts.services.login import login_with_passkey
@@ -40,11 +49,44 @@ from apps.core.clock import DefaultClock
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+def login_begin(request: Request) -> Response:
+    serializer = LoginBeginRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = get_user_by_email(serializer.validated_data["email"])
+    credentials = list_passkeys_selector(user) if user and user.is_active else []
+    webauthn = WebAuthnAdapterImpl(
+        rp_id=settings.WEBAUTHN_RP_ID,
+        rp_name=settings.WEBAUTHN_RP_NAME,
+        origin=settings.WEBAUTHN_ORIGIN,
+    )
+    options = webauthn.generate_authentication_options(
+        rp_id=webauthn.rp_id,
+        allowed_credential_ids=[credential.credential_id for credential in credentials],
+    )
+    request.session["webauthn_login_challenge"] = options.challenge
+    return Response(
+        {
+            "challenge": options.challenge,
+            "rp_id": options.rp_id,
+            "timeout": options.timeout,
+            "allow_credentials": options.allow_credentials or [],
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
 def login(request: Request) -> Response:
     serializer = LoginRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
     data = serializer.validated_data
+    expected_challenge = request.session.pop("webauthn_login_challenge", None)
+    if not expected_challenge:
+        raise BadRequestError(
+            "LOGIN_CHALLENGE_MISSING",
+            "Begin passkey login before submitting a credential",
+        )
     response = PasskeyAuthenticationResponse(
         credential_id=data["credential_id"],
         client_data_json=data["client_data_json"],
@@ -64,7 +106,7 @@ def login(request: Request) -> Response:
         request=request,
         credential_id=data["credential_id"],
         response=response,
-        expected_challenge=data["challenge"],
+        expected_challenge=expected_challenge,
         clock=clock,
         webauthn_adapter=webauthn,
         origin=webauthn.origin,
@@ -80,6 +122,12 @@ def activate(request: Request) -> Response:
     serializer.is_valid(raise_exception=True)
 
     data = serializer.validated_data
+    expected_challenge = request.session.pop("webauthn_activation_challenge", None)
+    if not expected_challenge:
+        raise BadRequestError(
+            "ACTIVATION_CHALLENGE_MISSING",
+            "Begin account activation before submitting a credential",
+        )
     PasskeyRegistrationResponse(
         credential_id=data["credential_id"],
         client_data_json=data["client_data_json"],
@@ -95,18 +143,19 @@ def activate(request: Request) -> Response:
     )
 
     user = activate_user(
-        student_number=data["student_number"],
         code=data["code"],
         password=data["password"],
         webauthn_response={
             "credential_id": data["credential_id"],
             "client_data_json": data["client_data_json"],
             "attestation_object": data["attestation_object"],
-            "challenge": data.get("challenge", ""),
+            "challenge": expected_challenge,
         },
         clock=clock,
         webauthn_adapter=webauthn,
         origin=webauthn.origin,
+        email=data.get("email"),
+        student_number=data.get("student_number"),
     )
 
     return Response(UserSerializer(user).data)
@@ -115,18 +164,15 @@ def activate(request: Request) -> Response:
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register_passkey_begin_for_activation(request: Request) -> Response:
-    student_number = request.data.get("student_number")
-    if not student_number:
-        from apps.core.exceptions import BadRequestError
-
-        raise BadRequestError(code="MISSING_STUDENT_NUMBER", message="Student number required")
-
-    from apps.accounts.selectors.functions import get_user_by_student_number
-
-    user = get_user_by_student_number(student_number)
+    serializer = ActivationIdentitySerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    identity = serializer.validated_data
+    user = (
+        get_user_by_email(identity["email"])
+        if identity.get("email")
+        else get_user_by_student_number(identity["student_number"])
+    )
     if not user:
-        from apps.core.exceptions import NotFoundError
-
         raise NotFoundError(code="USER_NOT_FOUND", message="User not found")
 
     DefaultClock()
@@ -143,6 +189,7 @@ def register_passkey_begin_for_activation(request: Request) -> Response:
         rp_id=webauthn.rp_id,
         rp_name=webauthn.rp_name,
     )
+    request.session["webauthn_activation_challenge"] = options.challenge
 
     return Response(
         {
@@ -175,7 +222,6 @@ def register_passkey_begin(request: Request) -> Response:
         rp_id=webauthn.rp_id,
         rp_name=webauthn.rp_name,
     )
-
     return Response(
         {
             "challenge": options.challenge,
@@ -202,7 +248,6 @@ def register_passkey_complete(request: Request) -> Response:
         attestation_object=data["attestation_object"],
         label=data["label"],
     )
-
     clock = DefaultClock()
     webauthn = WebAuthnAdapterImpl(
         rp_id=settings.WEBAUTHN_RP_ID,
@@ -226,8 +271,8 @@ def register_passkey_complete(request: Request) -> Response:
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_passkeys(request: Request) -> Response:
-    passkeys = list_passkeys_selector(request.user)
-    return Response(PasskeySerializer(passkeys, many=True).data)
+    credentials = list_passkeys_selector(request.user)
+    return Response(PasskeySerializer(credentials, many=True).data)
 
 
 @api_view(["DELETE"])

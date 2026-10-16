@@ -1,3 +1,4 @@
+import base64
 import secrets
 
 from webauthn import (
@@ -8,7 +9,6 @@ from webauthn import (
 )
 from webauthn.helpers.structs import (
     AuthenticationCredential,
-    PublicKeyCredentialUserEntity,
     RegistrationCredential,
 )
 
@@ -19,6 +19,15 @@ from apps.accounts.domain.webauthn import (
     PasskeyRegistrationResponse,
     WebAuthnAdapter,
 )
+
+
+def _encode_challenge(challenge: bytes) -> str:
+    return base64.urlsafe_b64encode(challenge).rstrip(b"=").decode("ascii")
+
+
+def _decode_challenge(challenge: str) -> bytes:
+    padded = challenge + "=" * (-len(challenge) % 4)
+    return base64.urlsafe_b64decode(padded)
 
 
 class WebAuthnAdapterImpl(WebAuthnAdapter):
@@ -35,19 +44,17 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
         rp_id: str,
         rp_name: str,
     ) -> PasskeyRegistrationOptions:
-        challenge = secrets.token_urlsafe(32)
+        challenge = secrets.token_bytes(32)
         options = generate_registration_options(
             rp_id=rp_id,
             rp_name=rp_name,
-            user=PublicKeyCredentialUserEntity(
-                id=user_id.encode("utf-8"),
-                name=user_name,
-                display_name=display_name,
-            ),
+            user_id=user_id.encode("utf-8"),
+            user_name=user_name,
+            user_display_name=display_name,
             challenge=challenge,
         )
         return PasskeyRegistrationOptions(
-            challenge=challenge,
+            challenge=_encode_challenge(challenge),
             user_id=user_id,
             user_name=user_name,
             display_name=display_name,
@@ -76,7 +83,7 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
         )
         verification = verify_registration_response(
             credential=credential,
-            expected_challenge=expected_challenge,
+            expected_challenge=_decode_challenge(expected_challenge),
             expected_origin=expected_origin,
             expected_rp_id=expected_rp_id,
         )
@@ -87,14 +94,14 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
         rp_id: str,
         allowed_credential_ids: list[str] | None = None,
     ) -> PasskeyAuthenticationOptions:
-        challenge = secrets.token_urlsafe(32)
+        challenge = secrets.token_bytes(32)
         options = generate_authentication_options(
             rp_id=rp_id,
             challenge=challenge,
             allow_credentials=allowed_credential_ids,
         )
         return PasskeyAuthenticationOptions(
-            challenge=challenge,
+            challenge=_encode_challenge(challenge),
             rp_id=rp_id,
             timeout=options.timeout,
             allow_credentials=allowed_credential_ids,
@@ -124,7 +131,7 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
         )
         verification = verify_authentication_response(
             credential=credential,
-            expected_challenge=expected_challenge,
+            expected_challenge=_decode_challenge(expected_challenge),
             expected_origin=expected_origin,
             expected_rp_id=expected_rp_id,
             credential_public_key=public_key,

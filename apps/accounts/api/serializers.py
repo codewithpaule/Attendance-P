@@ -7,11 +7,23 @@ class LoginRequestSerializer(serializers.Serializer):
     authenticator_data = serializers.CharField()
     signature = serializers.CharField()
     user_handle = serializers.CharField(required=False, allow_null=True)
-    challenge = serializers.CharField()
 
 
-class ActivationRequestSerializer(serializers.Serializer):
-    student_number = serializers.CharField()
+class LoginBeginRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ActivationIdentitySerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False)
+    student_number = serializers.CharField(required=False)
+
+    def validate(self, attrs):
+        if bool(attrs.get("email")) == bool(attrs.get("student_number")):
+            raise serializers.ValidationError("Provide an email address or student number.")
+        return attrs
+
+
+class ActivationRequestSerializer(ActivationIdentitySerializer):
     code = serializers.CharField()
     password = serializers.CharField(min_length=8)
     credential_id = serializers.CharField()

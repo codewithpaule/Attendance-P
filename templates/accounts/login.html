@@ -10,8 +10,8 @@
 
     <form id="login-form">
         <div class="form-group">
-            <label for="credential-id">Passkey Credential</label>
-            <input type="text" id="credential-id" readonly placeholder="Use your passkey device">
+            <label for="email">University email</label>
+            <input type="email" id="email" name="email" autocomplete="username webauthn" required>
         </div>
 
         <button type="submit" class="btn btn-primary" style="width: 100%;">
@@ -27,17 +27,40 @@
 
 {% block scripts %}
 <script type="module">
+    function decodeBase64Url(value) {
+        const base64 = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
+        return Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+    }
+
+    function encodeBuffer(value) {
+        return btoa(String.fromCharCode(...new Uint8Array(value)));
+    }
+
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = e.target.querySelector('button');
         setButtonLoading(btn, true);
 
         try {
+            const beginResponse = await fetch('/api/v1/auth/login/begin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: document.getElementById('email').value }),
+            });
+            const options = await beginResponse.json();
+            if (!beginResponse.ok) {
+                throw new Error(options.error?.message || 'Could not start passkey sign-in');
+            }
+
             const credential = await navigator.credentials.get({
                 publicKey: {
-                    challenge: new TextEncoder().encode('challenge-from-server'),
-                    rpId: window.location.hostname,
-                    allowCredentials: [],
+                    challenge: decodeBase64Url(options.challenge),
+                    rpId: options.rp_id,
+                    timeout: options.timeout,
+                    allowCredentials: options.allow_credentials.map(id => ({
+                        type: 'public-key',
+                        id: decodeBase64Url(id),
+                    })),
                     userVerification: 'preferred',
                 }
             });
@@ -47,10 +70,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     credential_id: credential.id,
-                    client_data_json: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON))),
-                    authenticator_data: btoa(String.fromCharCode(...new Uint8Array(credential.response.authenticatorData))),
-                    signature: btoa(String.fromCharCode(...new Uint8Array(credential.response.signature))),
-                    challenge: 'challenge-from-server',
+                    client_data_json: encodeBuffer(credential.response.clientDataJSON),
+                    authenticator_data: encodeBuffer(credential.response.authenticatorData),
+                    signature: encodeBuffer(credential.response.signature),
+                    user_handle: credential.response.userHandle
+                        ? encodeBuffer(credential.response.userHandle)
+                        : null,
                 })
             });
 

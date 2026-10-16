@@ -1,26 +1,26 @@
-
 from django.db import transaction
 
 from apps.accounts.domain.password import verify_code
 from apps.accounts.exceptions import BadRequestError, ConflictError, NotFoundError
 from apps.accounts.models import ActivationCode, User
-from apps.accounts.selectors import get_user_by_student_number
+from apps.accounts.selectors import get_user_by_email, get_user_by_student_number
 from apps.audit.services.record import record
 from apps.core.clock import Clock
 
 
 @transaction.atomic
 def activate_user(
-    student_number: str,
     code: str,
     password: str,
     webauthn_response: dict,
     clock: Clock,
     webauthn_adapter,
     origin: str,
+    email: str | None = None,
+    student_number: str | None = None,
 ) -> User:
-    """Activate a user account with student number, code, password, and first passkey."""
-    user = get_user_by_student_number(student_number)
+    """Activate an account using its email or legacy student number."""
+    user = get_user_by_email(email) if email else get_user_by_student_number(student_number or "")
     if not user:
         raise NotFoundError("User not found")
 

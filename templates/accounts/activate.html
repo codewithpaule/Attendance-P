@@ -11,8 +11,8 @@
 
     <form id="activate-form">
         <div class="form-group">
-            <label for="student-number">Student Number</label>
-            <input type="text" id="student-number" name="student_number" required>
+            <label for="email">University email</label>
+            <input type="email" id="email" name="email" autocomplete="email" required>
         </div>
 
         <div class="form-group">
@@ -43,12 +43,17 @@
 
 {% block scripts %}
 <script type="module">
+    function decodeBase64Url(value) {
+        const base64 = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
+        return Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+    }
+
     document.getElementById('activate-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = e.target.querySelector('button');
         setButtonLoading(btn, true);
 
-        const studentNumber = document.getElementById('student-number').value;
+        const email = document.getElementById('email').value;
         const code = document.getElementById('activation-code').value;
         const password = document.getElementById('password').value;
         const label = document.getElementById('passkey-label').value;
@@ -57,12 +62,12 @@
             const createOptions = await fetch('/api/v1/passkeys/register/begin-activation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ student_number: studentNumber }),
+                body: JSON.stringify({ email }),
             }).then(r => r.json());
 
             const credential = await navigator.credentials.create({
                 publicKey: {
-                    challenge: new TextEncoder().encode(createOptions.challenge),
+                    challenge: decodeBase64Url(createOptions.challenge),
                     rp: {
                         id: createOptions.rp_id,
                         name: createOptions.rp_name,
@@ -84,14 +89,13 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    student_number: studentNumber,
+                    email,
                     code: code,
                     password: password,
                     credential_id: credential.id,
                     client_data_json: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON))),
                     attestation_object: btoa(String.fromCharCode(...new Uint8Array(credential.response.attestationObject))),
                     label: label,
-                    challenge: createOptions.challenge,
                 })
             });
 

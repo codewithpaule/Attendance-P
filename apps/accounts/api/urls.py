@@ -1,4 +1,3 @@
-
 from django.urls import path
 
 from apps.accounts.api.views import (
@@ -7,6 +6,7 @@ from apps.accounts.api.views import (
     issue_recovery_code,
     list_passkeys,
     login,
+    login_begin,
     register_passkey_begin,
     register_passkey_begin_for_activation,
     register_passkey_complete,
@@ -15,6 +15,7 @@ from apps.accounts.api.views import (
 )
 
 urlpatterns = [
+    path("auth/login/begin", login_begin, name="login_begin"),
     path("auth/login", login, name="login"),
     path("auth/activate", activate, name="activate"),
     path(

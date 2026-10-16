@@ -191,11 +191,15 @@ See `.env.example` for the complete list of required environment variables.
 **Setup Steps:**
 1. Create admin account (done locally with `python manage.py createsuperuser`)
 2. Access Django Admin panel
-3. Configure initial data:
+3. Add teacher and student accounts under "Accounts" in Django Admin
+   - Teachers use their email address and do not need a student number
+   - Students require a student number
+   - Share the one-time activation code shown after each account is created
+4. Configure initial data:
    - Create academic terms (e.g., 2024/2025 First Semester)
    - Add rooms/buildings (e.g., Room 101, Lecture Hall A)
    - Create courses (e.g., CSC 101, MTH 201)
-   - Import students via CSV (email, student_id, full_name)
+   - Import students via CSV (email, student_number, full_name)
    - Import teachers via CSV (email, full_name)
    - Import advisors via CSV (email, full_name)
    - Create enrollments (link students to courses)
