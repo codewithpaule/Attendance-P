@@ -12,16 +12,18 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f0;
-            color: #2d2d2d;
-            line-height: 1.6;
+            background-image: url("/static/image/class.jpg.jpeg");
+            background-size: cover;
+            background-position: down center;
+            background-repeat: no-repeat;
+            background-color: fixed;
+            min-width: 100vh;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 270px;
         }
 
         .btn {
@@ -41,21 +43,21 @@
         }
 
         .btn-primary {
-            background: #4a4a3a;
+            background: #08f728;
             color: white;
         }
 
         .btn-primary:hover:not(:disabled) {
-            background: #3a3a2a;
+            background: #08f728;
         }
 
         .btn-success {
-            background: #4a7c59;
+            background: #08f728;
             color: white;
         }
 
         .btn-success:hover:not(:disabled) {
-            background: #3a6c49;
+            background: #08f728;
         }
 
         .btn-danger {
@@ -91,10 +93,12 @@
         }
 
         .card {
-            background: white;
-            border-radius: 12px;
-            padding: 32px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            background: transparent ! important;
+            background-color: transparent ! important;
+            box-shadow: none ! important;
+            border: none ! important;
+            backdrop-filter: none ! important;
+            -webkit-backdrop-filter: none ! important;
         }
 
         .form-group {
@@ -104,21 +108,21 @@
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 500;
-            color: #4a4a3a;
+            font-weight: 900;
+            color: #08f728;
         }
 
         .form-group input {
             width: 100%;
             padding: 12px;
-            border: 1px solid #d0d0c8;
+            border: 1px #08f728 solid;
             border-radius: 8px;
             font-size: 16px;
         }
 
         .form-group input:focus {
             outline: none;
-            border-color: #4a4a3a;
+            border-color: #08f728;
         }
 
         .alert {
