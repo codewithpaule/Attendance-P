@@ -7,9 +7,10 @@ ALLOWED_HOSTS = ["*"]
 # Database configuration for Neon with transaction pooling
 if DATABASE_URL := env.str("DATABASE_URL", default=None):
     import dj_database_url
+
     DATABASES = {
         "default": dj_database_url.config(
-            DATABASE_URL,
+            default=DATABASE_URL,
             conn_max_age=0,
             ssl_require=True,
             conn_health_checks=True,
