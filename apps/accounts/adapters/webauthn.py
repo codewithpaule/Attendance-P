@@ -7,9 +7,9 @@ from webauthn import (
     verify_authentication_response,
     verify_registration_response,
 )
-from webauthn.helpers.structs import (
-    AuthenticationCredential,
-    RegistrationCredential,
+from webauthn.helpers import (
+    parse_authentication_credential_json,
+    parse_registration_credential_json,
 )
 
 from apps.accounts.domain.webauthn import (
@@ -70,7 +70,7 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
         expected_origin: str,
         expected_rp_id: str,
     ) -> tuple[str, int]:
-        credential = RegistrationCredential.parse_raw(
+        credential = parse_registration_credential_json(
             {
                 "id": response.credential_id,
                 "rawId": response.credential_id,
@@ -116,7 +116,7 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
         public_key: str,
         current_sign_count: int,
     ) -> int:
-        credential = AuthenticationCredential.parse_raw(
+        credential = parse_authentication_credential_json(
             {
                 "id": response.credential_id,
                 "rawId": response.credential_id,

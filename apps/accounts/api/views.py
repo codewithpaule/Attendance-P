@@ -131,7 +131,7 @@ def activate(request: Request) -> Response:
             "ACTIVATION_CHALLENGE_MISSING",
             "Begin account activation before submitting a credential",
         )
-    PasskeyRegistrationResponse(
+    registration_response = PasskeyRegistrationResponse(
         credential_id=data["credential_id"],
         client_data_json=data["client_data_json"],
         attestation_object=data["attestation_object"],
@@ -148,12 +148,8 @@ def activate(request: Request) -> Response:
     user = activate_user(
         code=data["code"],
         password=data["password"],
-        webauthn_response={
-            "credential_id": data["credential_id"],
-            "client_data_json": data["client_data_json"],
-            "attestation_object": data["attestation_object"],
-            "challenge": expected_challenge,
-        },
+        webauthn_response=registration_response,
+        expected_challenge=expected_challenge,
         clock=clock,
         webauthn_adapter=webauthn,
         origin=webauthn.origin,

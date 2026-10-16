@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from apps.accounts.domain.password import verify_code
+from apps.accounts.domain.webauthn import PasskeyRegistrationResponse
 from apps.accounts.exceptions import BadRequestError, ConflictError, NotFoundError
 from apps.accounts.models import ActivationCode, User
 from apps.accounts.selectors import get_user_by_email, get_user_by_student_number
@@ -12,7 +13,8 @@ from apps.core.clock import Clock
 def activate_user(
     code: str,
     password: str,
-    webauthn_response: dict,
+    webauthn_response: PasskeyRegistrationResponse,
+    expected_challenge: str,
     clock: Clock,
     webauthn_adapter,
     origin: str,
@@ -56,16 +58,16 @@ def activate_user(
 
     public_key, sign_count = webauthn_adapter.verify_registration_response(
         response=webauthn_response,
-        expected_challenge=webauthn_response["challenge"],
+        expected_challenge=expected_challenge,
         expected_origin=origin,
         expected_rp_id=webauthn_adapter.rp_id,
     )
 
     user.passkey_credentials.create(
-        credential_id=webauthn_response["credential_id"],
+        credential_id=webauthn_response.credential_id,
         public_key=public_key,
         sign_count=sign_count,
-        label="Default",
+        label=webauthn_response.label,
     )
 
     record(

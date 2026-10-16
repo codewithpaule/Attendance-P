@@ -1,10 +1,20 @@
+import base64
 import json
+from datetime import timedelta
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.accounts.models import PasskeyCredential, User
+from apps.accounts.domain.password import hash_code
+from apps.accounts.models import ActivationCode, PasskeyCredential, User
+from apps.core.clock import DefaultClock
+
+
+def encode_base64_url(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
 
 
 @pytest.mark.django_db
@@ -182,6 +192,60 @@ def test_activation_options_work_with_existing_authenticated_session():
 
     assert response.status_code == 200
     assert response.data["user_name"] == teacher.email
+
+
+@pytest.mark.django_db
+@patch(
+    "apps.accounts.adapters.webauthn.verify_registration_response",
+    return_value=SimpleNamespace(credential_public_key="public-key", sign_count=0),
+)
+def test_teacher_can_complete_email_activation_with_webauthn_v3(
+    mock_verify_registration,
+):
+    teacher = User.objects.create_user(
+        email="teacher@example.com",
+        password=None,
+        full_name="Teacher Example",
+        role=User.Role.TEACHER,
+        is_active=False,
+    )
+    code = "ABCD1234"
+    ActivationCode.objects.create(
+        user=teacher,
+        purpose=ActivationCode.Purpose.ACTIVATION,
+        code_hash=hash_code(code),
+        expires_at=DefaultClock().now() + timedelta(days=1),
+    )
+    client = APIClient()
+    options = client.post(
+        reverse("register_passkey_begin_for_activation"),
+        {"email": teacher.email},
+        format="json",
+    )
+    assert options.status_code == 200
+
+    response = client.post(
+        "/api/v1/auth/activate",
+        {
+            "email": teacher.email,
+            "code": code,
+            "password": "StrongTeacherPass!234",
+            "credential_id": encode_base64_url(b"teacher-credential"),
+            "client_data_json": encode_base64_url(b"client-data"),
+            "attestation_object": encode_base64_url(b"attestation"),
+        },
+        format="json",
+    )
+
+    teacher.refresh_from_db()
+    assert response.status_code == 200
+    assert teacher.is_active
+    assert teacher.check_password("StrongTeacherPass!234")
+    assert PasskeyCredential.objects.filter(
+        user=teacher,
+        credential_id=encode_base64_url(b"teacher-credential"),
+    ).exists()
+    mock_verify_registration.assert_called_once()
 
 
 @pytest.mark.django_db
