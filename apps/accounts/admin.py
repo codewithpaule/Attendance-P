@@ -1,10 +1,10 @@
-from datetime import timedelta
-
 from django import forms
 from django.contrib import admin, messages
+from django.urls import reverse
 
-from apps.accounts.domain.password import generate_activation_code, hash_code
-from apps.accounts.models import ActivationCode, User
+from apps.accounts.adapters.email import send_activation_email
+from apps.accounts.models import User
+from apps.accounts.services.activation_codes import issue_activation_code
 from apps.core.clock import DefaultClock
 
 
@@ -34,6 +34,7 @@ class AccountAdmin(admin.ModelAdmin):
     list_filter = ("role", "is_active", "is_staff")
     search_fields = ("email", "full_name", "student_number")
     ordering = ("email",)
+    actions = ("resend_activation_emails",)
 
     def get_fields(self, _request, obj=None):
         fields = ["email", "full_name", "role", "student_number"]
@@ -51,15 +52,51 @@ class AccountAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
         if is_new:
-            code = generate_activation_code()
-            ActivationCode.objects.create(
-                user=obj,
-                purpose=ActivationCode.Purpose.ACTIVATION,
-                code_hash=hash_code(code),
-                expires_at=DefaultClock().now() + timedelta(days=7),
+            code = issue_activation_code(obj, DefaultClock())
+            self._send_activation_email(request, obj, code)
+
+    @admin.action(description="Resend activation email")
+    def resend_activation_emails(self, request, queryset):
+        sent = 0
+        failed = 0
+        skipped = 0
+        for user in queryset:
+            if user.is_active:
+                skipped += 1
+                continue
+            code = issue_activation_code(user, DefaultClock())
+            if self._send_activation_email(request, user, code, notify=False):
+                sent += 1
+            else:
+                failed += 1
+
+        self.message_user(
+            request,
+            f"Activation emails sent: {sent}. Failed: {failed}. Already active: {skipped}.",
+            level=messages.SUCCESS if not failed else messages.WARNING,
+        )
+
+    def _send_activation_email(self, request, user, code, notify=True) -> bool:
+        try:
+            send_activation_email(
+                recipient=user.email,
+                full_name=user.full_name,
+                activation_code=code,
+                activation_url=request.build_absolute_uri(reverse("activate")),
             )
+        except Exception:
             self.message_user(
                 request,
-                f"One-time activation code for {obj.email}: {code}",
+                f"Account {user.email} was saved, but the activation email failed. "
+                "Check email configuration and use the Resend activation email action.",
+                level=messages.ERROR,
+            )
+            return False
+
+        if notify:
+            self.message_user(
+                request,
+                f"Activation instructions were emailed to {user.email}.",
                 level=messages.SUCCESS,
             )
+        return True
