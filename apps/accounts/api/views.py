@@ -1,5 +1,5 @@
 from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -49,6 +49,7 @@ from apps.core.clock import DefaultClock
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def login_begin(request: Request) -> Response:
     serializer = LoginBeginRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -76,6 +77,7 @@ def login_begin(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def login(request: Request) -> Response:
     serializer = LoginRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -117,6 +119,7 @@ def login(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def activate(request: Request) -> Response:
     serializer = ActivationRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -163,6 +166,7 @@ def activate(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def register_passkey_begin_for_activation(request: Request) -> Response:
     serializer = ActivationIdentitySerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -303,6 +307,7 @@ def issue_recovery_code(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def use_recovery_code(request: Request) -> Response:
     serializer = UseRecoveryCodeSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

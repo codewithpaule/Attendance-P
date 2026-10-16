@@ -156,6 +156,35 @@ def test_activation_options_accept_teacher_email_without_student_number():
 
 
 @pytest.mark.django_db
+def test_activation_options_work_with_existing_authenticated_session():
+    admin = User.objects.create_superuser(
+        email="admin@example.com",
+        password="StrongAdminPass!234",
+        full_name="Admin Example",
+        role=User.Role.ADMIN,
+        is_active=True,
+    )
+    teacher = User.objects.create_user(
+        email="teacher@example.com",
+        password=None,
+        full_name="Teacher Example",
+        role=User.Role.TEACHER,
+        is_active=False,
+    )
+    client = APIClient(enforce_csrf_checks=True)
+    client.force_login(admin)
+
+    response = client.post(
+        reverse("register_passkey_begin_for_activation"),
+        {"email": teacher.email},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.data["user_name"] == teacher.email
+
+
+@pytest.mark.django_db
 def test_activation_options_still_accept_legacy_student_number():
     student = User.objects.create_user(
         email="student@example.com",
