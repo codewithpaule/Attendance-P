@@ -11,10 +11,9 @@
 
         {% if session.status == "OPEN" %}
         <div id="qr-container" style="margin: 20px 0;">
-            <div style="width: 300px; height: 300px; background: #f0f0ea; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
-                <span style="color: #8a8a7a;">Loading QR code...</span>
-            </div>
+            <img id="qr-code-image" width="300" height="300" alt="Live class attendance QR code" style="display: block; margin: 0 auto;">
         </div>
+        <p id="qr-status" role="status" aria-live="polite">Generating QR code...</p>
 
         <div style="margin-top: 20px;">
             <button id="close-session-btn" class="btn btn-warning">
@@ -55,37 +54,32 @@
     }
 
     async function loadQRToken() {
+        const errorDiv = document.getElementById('error-message');
+        const status = document.getElementById('qr-status');
         try {
+            status.textContent = 'Refreshing QR code...';
             const response = await fetch(`/api/v1/sessions/${sessionId}/qr-token`);
             const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(data.error?.message || 'Failed to load QR token');
             }
+            if (!data.qr_svg) {
+                throw new Error('QR image was not returned. Please reload the page.');
+            }
 
-            const url = `${window.location.origin}/c/${sessionId}/?t=${data.token}`;
-            
-            const qrContainer = document.getElementById('qr-container');
-            qrContainer.innerHTML = `<canvas id="qrcode" width="300" height="300" style="display: block; margin: 0 auto;"></canvas>`;
-
-            // Use qrcode.js library (will load from CDN)
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-            script.onload = () => {
-                QRCode.toCanvas(document.getElementById('qrcode'), url, {
-                    width: 300,
-                    margin: 2,
-                    color: {
-                        dark: '#4a4a3a',
-                        light: '#ffffff',
-                    }
-                });
-            };
-            document.head.appendChild(script);
+            const image = document.getElementById('qr-code-image');
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = () => reject(new Error('QR image could not be displayed.'));
+                image.src = data.qr_svg;
+            });
+            errorDiv.style.display = 'none';
+            status.textContent = 'QR ready. It refreshes every 10 seconds.';
         } catch (error) {
-            const errorDiv = document.getElementById('error-message');
             errorDiv.textContent = error.message;
             errorDiv.style.display = 'block';
+            status.textContent = 'QR code unavailable.';
         }
     }
 

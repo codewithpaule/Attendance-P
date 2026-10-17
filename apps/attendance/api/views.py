@@ -1,10 +1,14 @@
+from urllib.parse import urlencode
+
 from django.conf import settings
+from django.urls import reverse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.accounts.selectors.functions import list_passkeys
+from apps.attendance.adapters.qr import generate_qr_svg_data_uri
 from apps.attendance.api.serializers import (
     BeginCheckInSerializer,
     CheckInSerializer,
@@ -96,8 +100,12 @@ def qr_token_view(request: Request, session_id: str) -> Response:
         teacher=request.user,
         max_age_seconds=settings.QR_TOKEN_MAX_AGE_SECONDS,
     )
+    checkin_url = request.build_absolute_uri(
+        reverse("public_session_checkin", kwargs={"session_id": session_id})
+    )
+    qr_svg = generate_qr_svg_data_uri(f"{checkin_url}?{urlencode({'t': token})}")
 
-    return Response({"token": token})
+    return Response({"token": token, "qr_svg": qr_svg})
 
 
 @api_view(["POST"])
