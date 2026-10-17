@@ -112,6 +112,13 @@ async function completeCheckIn(assertion) {
     const data = await response.json();
 
     if (!response.ok) {
+      if (data.error?.code === 'OUTSIDE_CLASSROOM') {
+        currentLocation = null;
+        document.getElementById('location-error').textContent = data.error.message;
+        document.getElementById('location-error').classList.remove('hidden');
+        showStep('location');
+        return;
+      }
       throw new Error(data.error?.message || 'Failed to complete check-in');
     }
 
@@ -156,6 +163,16 @@ function decodeBase64Url(value) {
 
 function encodeBuffer(value) {
   return btoa(String.fromCharCode(...new Uint8Array(value)));
+}
+
+function distanceMeters(first, second) {
+  const radians = degrees => degrees * Math.PI / 180;
+  const latitudeDelta = radians(second.lat - first.lat);
+  const longitudeDelta = radians(second.lng - first.lng);
+  const arc = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(radians(first.lat)) * Math.cos(radians(second.lat))
+    * Math.sin(longitudeDelta / 2) ** 2;
+  return 6371000 * 2 * Math.asin(Math.sqrt(arc));
 }
 
 async function loadQrLibrary() {
@@ -344,6 +361,12 @@ export const checkin = {
       setButtonLoading('location-btn', true);
       try {
         currentLocation = await getLocation();
+        const classroom = currentAuthOptions?.classroom;
+        if (classroom && distanceMeters(currentLocation, classroom) > classroom.radius_m) {
+          currentLocation = null;
+          throw new Error('You are outside the classroom check-in area. Go to class and share your location again.');
+        }
+        document.getElementById('location-error').classList.add('hidden');
         document.getElementById('location-status').textContent = 'Location received. Confirm your passkey next.';
         showStep('passkey');
       } catch (error) {

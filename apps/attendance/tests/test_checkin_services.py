@@ -5,11 +5,11 @@ from django.utils import timezone
 
 from apps.academics.models import Course, Enrollment, Room, Term
 from apps.accounts.models import User
-from apps.attendance.models import ClassSession
+from apps.attendance.models import CheckIn, ClassSession
 from apps.attendance.services.checkin import begin_checkin, complete_checkin
 from apps.attendance.services.session import open_session
 from apps.core.clock import DefaultClock
-from apps.core.exceptions import BadRequestError, ConflictError, NotFoundError
+from apps.core.exceptions import BadRequestError, NotFoundError
 
 
 class FrozenClock:
@@ -154,8 +154,7 @@ def test_begin_checkin_not_enrolled():
 
 
 @pytest.mark.django_db
-def test_begin_checkin_pending_attempt_exists():
-    """Test beginning check-in when pending attempt exists fails."""
+def test_begin_checkin_replaces_an_unfinished_attempt():
     term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
     room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
     teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
@@ -179,8 +178,7 @@ def test_begin_checkin_pending_attempt_exists():
     adapter = DjangoQRTokenAdapter()
     qr_token = adapter.generate_token(str(session.id))
 
-    # Create first attempt
-    begin_checkin(
+    first_attempt = begin_checkin(
         session_id=str(session.id),
         student=student,
         qr_token=qr_token,
@@ -188,15 +186,18 @@ def test_begin_checkin_pending_attempt_exists():
         clock=clock,
     )
 
-    # Try to create second attempt
-    with pytest.raises(ConflictError, match="A pending check-in attempt already exists"):
-        begin_checkin(
-            session_id=str(session.id),
-            student=student,
-            qr_token=qr_token,
-            device_hint="device123",
-            clock=clock,
-        )
+    replacement_attempt = begin_checkin(
+        session_id=str(session.id),
+        student=student,
+        qr_token=qr_token,
+        device_hint="device456",
+        clock=clock,
+    )
+
+    first_attempt.refresh_from_db()
+    assert first_attempt.consumed_at is not None
+    assert replacement_attempt.id != first_attempt.id
+    assert replacement_attempt.consumed_at is None
 
 
 @pytest.mark.django_db
@@ -246,9 +247,6 @@ def test_complete_checkin_success():
         )
 
     location = {"lat": 6.5244, "lng": 3.3792, "accuracy_m": 10, "timestamp": 1000}
-
-    # This will fail because passkey verification will fail
-    # For now, we'll test the structure
     with pytest.raises(BadRequestError, match="Passkey verification failed"):
         complete_checkin(
             attempt_id=str(attempt.id),
@@ -257,6 +255,46 @@ def test_complete_checkin_success():
             location=location,
             clock=clock,
         )
+
+@pytest.mark.django_db
+def test_complete_checkin_outside_classroom_requires_student_to_go_to_class():
+    term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
+    room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
+    teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
+    student = User.objects.create_user(email="student@example.com", full_name="Student", role="student")
+    course = Course.objects.create(code="CS101", title="Intro to CS", term=term, teacher=teacher, default_room=room)
+    Enrollment.objects.create(course=course, student=student)
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.OPEN,
+    )
+    from apps.attendance.adapters.qr import DjangoQRTokenAdapter
+
+    attempt = begin_checkin(
+        session_id=str(session.id),
+        student=student,
+        qr_token=DjangoQRTokenAdapter().generate_token(str(session.id)),
+        device_hint="device123",
+        clock=DefaultClock(),
+    )
+
+    with pytest.raises(BadRequestError, match="Go to class"):
+        complete_checkin(
+            attempt_id=str(attempt.id),
+            student=student,
+            assertion={},
+            location={
+                "lat": 6.5344,
+                "lng": 3.3792,
+                "accuracy_m": 10,
+                "timestamp": DefaultClock().now().timestamp(),
+            },
+            clock=DefaultClock(),
+        )
+
+    assert not CheckIn.objects.filter(session=session, student=student).exists()
 
 
 @pytest.mark.django_db

@@ -79,7 +79,15 @@ def begin_checkin(
     # Check for existing pending attempt
     existing_attempt = get_pending_checkin_attempt_for_session(session_id, str(student.id))
     if existing_attempt:
-        raise ConflictError("PENDING_ATTEMPT_EXISTS", "A pending check-in attempt already exists")
+        existing_attempt.consumed_at = now
+        existing_attempt.save(update_fields=["consumed_at", "updated_at"])
+        record(
+            actor=student,
+            action="CHECKIN_ATTEMPT_REPLACED",
+            target_type="CheckInAttempt",
+            target_id=str(existing_attempt.id),
+            metadata={"replacement_session_id": str(session.id)},
+        )
 
     # Generate WebAuthn challenge
     webauthn_adapter = WebAuthnAdapterImpl(
@@ -145,6 +153,18 @@ def complete_checkin(
     if location["accuracy_m"] <= 0:
         raise BadRequestError("LOCATION_INVALID", "The location reading is not accurate enough")
 
+    distance_m = haversine_distance(
+        location["lat"],
+        location["lng"],
+        float(attempt.session.room.latitude),
+        float(attempt.session.room.longitude),
+    )
+    if distance_m > attempt.session.room.radius_m:
+        raise BadRequestError(
+            "OUTSIDE_CLASSROOM",
+            "You are outside the classroom check-in area. Go to class and scan again.",
+        )
+
     # Verify passkey assertion
     try:
         from django.conf import settings
@@ -186,25 +206,10 @@ def complete_checkin(
     attempt.save()
 
     # Calculate distance if location provided
-    distance_m = None
-    latitude = None
-    longitude = None
-    accuracy_m = None
-    location_timestamp = None
-
-    if location:
-        latitude = location.get("lat")
-        longitude = location.get("lng")
-        accuracy_m = location.get("accuracy_m")
-        location_timestamp = location.get("timestamp")
-
-        if latitude is not None and longitude is not None:
-            distance_m = haversine_distance(
-                latitude,
-                longitude,
-                attempt.session.room.latitude,
-                attempt.session.room.longitude,
-            )
+    latitude = location["lat"]
+    longitude = location["lng"]
+    accuracy_m = location["accuracy_m"]
+    location_timestamp = location["timestamp"]
 
     # Get credential age
     credential_age_hours = None

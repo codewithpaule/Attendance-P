@@ -133,6 +133,11 @@ def begin_checkin_view(request: Request) -> Response:
             "rp_id": settings.WEBAUTHN_RP_ID,
             "timeout": 60000,
             "allow_credentials": [credential.credential_id for credential in credentials],
+            "classroom": {
+                "lat": float(attempt.session.room.latitude),
+                "lng": float(attempt.session.room.longitude),
+                "radius_m": attempt.session.room.radius_m,
+            },
         }
     )
 
