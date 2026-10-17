@@ -16,6 +16,8 @@ class ClassSession(BaseModel):
     room = models.ForeignKey(Room, on_delete=models.PROTECT)
     teacher = models.ForeignKey(User, on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    scheduled_start_at = models.DateTimeField(null=True, blank=True)
+    scheduled_end_at = models.DateTimeField(null=True, blank=True)
     opened_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
     finalized_at = models.DateTimeField(null=True, blank=True)

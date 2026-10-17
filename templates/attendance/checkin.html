@@ -126,9 +126,15 @@
     <h1 class="checkin-title">Check In</h1>
 
     <div id="scan-step" class="checkin-step">
-      <p class="checkin-copy">Scan the QR code displayed by your teacher to begin check-in.</p>
+      <p class="checkin-copy">Scan the live class QR code to begin check-in.</p>
 
-      <input type="text" id="qr-input" placeholder="Enter QR code or scan" class="checkin-input" />
+      <button id="camera-start-btn" class="checkin-btn" type="button">Scan with camera</button>
+      <button id="camera-stop-btn" class="checkin-secondary-btn hidden" type="button">Stop camera</button>
+      <div id="qr-reader" aria-live="polite"></div>
+      <p id="camera-error" class="text-red-600 hidden"></p>
+
+      <label for="qr-input">Or paste the QR link</label>
+      <input type="url" id="qr-input" placeholder="https://.../c/session/?t=..." class="checkin-input" />
 
       <button id="scan-btn" class="checkin-btn">Scan QR Code</button>
     </div>
@@ -139,6 +145,7 @@
       <button id="location-btn" class="checkin-btn">Share Location</button>
 
       <p id="location-error" class="text-red-600 hidden"></p>
+      <p id="location-status" aria-live="polite"></p>
     </div>
 
     <div id="passkey-step" class="checkin-step hidden">
@@ -171,6 +178,8 @@
     </div>
   </div>
 </div>
+
+<form id="csrf-token-form" hidden>{% csrf_token %}</form>
 
 <script type="module">
   import { checkin } from '/static/js/checkin.js';

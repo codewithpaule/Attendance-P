@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import transaction
 
 from apps.accounts.adapters.webauthn import WebAuthnAdapterImpl
@@ -12,6 +13,7 @@ from apps.attendance.selectors.functions import (
     get_checkin_for_student,
     get_pending_checkin_attempt_for_session,
 )
+from apps.attendance.services.session import close_session_if_due
 from apps.audit.services.record import record
 from apps.core.clock import Clock
 from apps.core.exceptions import BadRequestError, ConflictError, NotFoundError
@@ -31,6 +33,8 @@ def begin_checkin(
     if not session:
         raise NotFoundError("SESSION_NOT_FOUND", "Session not found")
 
+    now = clock.now()
+    close_session_if_due(session, now)
     if session.status != ClassSession.Status.OPEN:
         raise BadRequestError("SESSION_NOT_OPEN", "Session is not open")
 
@@ -56,8 +60,20 @@ def begin_checkin(
     if not any(enrollment.course_id == session.course_id for enrollment in enrollments):
         raise BadRequestError("NOT_ENROLLED", "Student is not enrolled in this course")
 
-    # Check if within check-in window
-    if session.opened_at and clock.now() > session.opened_at + timedelta(minutes=session.checkin_window_minutes):
+    if session.scheduled_start_at and now < session.scheduled_start_at - timedelta(
+        minutes=settings.CHECKIN_PREOPEN_MINUTES
+    ):
+        raise BadRequestError(
+            "CHECKIN_NOT_OPEN",
+            f"Check-in opens {settings.CHECKIN_PREOPEN_MINUTES} minutes before class starts",
+        )
+    if session.scheduled_end_at and now >= session.scheduled_end_at:
+        raise BadRequestError("CHECKIN_WINDOW_CLOSED", "The scheduled class has ended")
+    if (
+        not session.scheduled_end_at
+        and session.opened_at
+        and now > session.opened_at + timedelta(minutes=session.checkin_window_minutes)
+    ):
         raise BadRequestError("CHECKIN_WINDOW_CLOSED", "Check-in window has closed")
 
     # Check for existing pending attempt
@@ -66,8 +82,6 @@ def begin_checkin(
         raise ConflictError("PENDING_ATTEMPT_EXISTS", "A pending check-in attempt already exists")
 
     # Generate WebAuthn challenge
-    from django.conf import settings
-
     webauthn_adapter = WebAuthnAdapterImpl(
         rp_id=settings.WEBAUTHN_RP_ID,
         rp_name=settings.WEBAUTHN_RP_NAME,
@@ -123,6 +137,13 @@ def complete_checkin(
 
     if attempt.expires_at < clock.now():
         raise BadRequestError("ATTEMPT_EXPIRED", "Check-in attempt has expired")
+
+    if not location or any(
+        location.get(key) is None for key in ("lat", "lng", "accuracy_m", "timestamp")
+    ):
+        raise BadRequestError("LOCATION_REQUIRED", "Share your current location to check in")
+    if location["accuracy_m"] <= 0:
+        raise BadRequestError("LOCATION_INVALID", "The location reading is not accurate enough")
 
     # Verify passkey assertion
     try:
@@ -198,7 +219,7 @@ def complete_checkin(
     signal = CheckInSignal(
         qr_fresh=True,  # Already verified in begin_checkin
         passkey_verified=True,  # Just verified
-        location_available=location is not None,
+        location_available=True,
         latitude=latitude,
         longitude=longitude,
         accuracy_m=accuracy_m,

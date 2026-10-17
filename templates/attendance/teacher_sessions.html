@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Class Sessions - POMSOM{% endblock %}
+
+{% block content %}
+<main class="sessions-page">
+    <header class="sessions-header">
+        <div>
+            <p class="eyebrow">TEACHER WORKSPACE</p>
+            <h1>Class sessions</h1>
+        </div>
+        <a href="{% url 'classroom_map' %}">Classroom location</a>
+    </header>
+
+    {% for message in messages %}
+        <p class="session-message {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
+
+    <section class="schedule-section">
+        <h2>Schedule a class</h2>
+        {% if form.course.field.queryset %}
+            <form method="post" class="schedule-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="schedule">
+                <div class="schedule-fields">
+                    <label>Course {{ form.course }}{% for error in form.course.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>
+                    <label>Starts {{ form.scheduled_start_at }}{% for error in form.scheduled_start_at.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>
+                    <label>Ends {{ form.scheduled_end_at }}{% for error in form.scheduled_end_at.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>
+                </div>
+                <button type="submit">Schedule class</button>
+            </form>
+        {% else %}
+            <p>Assign a course and save its classroom location before scheduling a session.</p>
+        {% endif %}
+    </section>
+
+    <section class="sessions-list" aria-labelledby="sessions-title">
+        <h2 id="sessions-title">Scheduled and recent sessions</h2>
+        {% for session in sessions %}
+            <article class="session-row">
+                <div>
+                    <h3>{{ session.course.code }} · {{ session.course.title }}</h3>
+                    <p>{{ session.room.name }}</p>
+                    {% if session.scheduled_start_at and session.scheduled_end_at %}
+                        <p>{{ session.scheduled_start_at|date:"D, j M Y · H:i" }} – {{ session.scheduled_end_at|date:"H:i" }}</p>
+                    {% else %}
+                        <p>Time not scheduled</p>
+                    {% endif %}
+                </div>
+                <div class="session-actions">
+                    <span class="session-status">{{ session.get_status_display }}</span>
+                    {% if session.status == "SCHEDULED" %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="open">
+                            <input type="hidden" name="session_id" value="{{ session.id }}">
+                            <button type="submit">Start check-in</button>
+                        </form>
+                    {% elif session.status == "OPEN" %}
+                        <a href="{% url 'teacher_qr' session.id %}">Show live QR</a>
+                    {% endif %}
+                </div>
+            </article>
+        {% empty %}
+            <p>No sessions scheduled yet.</p>
+        {% endfor %}
+    </section>
+</main>
+
+<style>
+    .sessions-page { max-width: 980px; margin: 28px auto; color: #20302d; }
+    .sessions-header, .session-row { display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+    .sessions-header { padding-bottom: 24px; border-bottom: 1px solid #cad5d0; }
+    .eyebrow { color: #37685b; font-size: 12px; font-weight: 700; }
+    .sessions-page h1 { margin-top: 8px; font-size: 30px; }
+    .schedule-section, .sessions-list { padding: 24px 0; border-bottom: 1px solid #cad5d0; }
+    .sessions-page h2 { font-size: 19px; margin-bottom: 16px; }
+    .schedule-fields { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
+    .schedule-fields label { display: grid; gap: 7px; font-weight: 600; }
+    .schedule-fields input, .schedule-fields select { min-width: 0; width: 100%; padding: 10px; border: 1px solid #98aaa3; border-radius: 4px; }
+    .schedule-form button, .session-actions button { margin-top: 14px; padding: 10px 14px; border: 0; border-radius: 4px; background: #1c6250; color: white; cursor: pointer; }
+    .session-row { padding: 17px 0; border-top: 1px solid #e0e7e3; }
+    .session-row h3 { font-size: 16px; margin-bottom: 5px; }
+    .session-row p { color: #52645d; margin-top: 4px; }
+    .session-actions { display: flex; align-items: center; gap: 14px; }
+    .session-actions form { margin: 0; }
+    .session-actions button { margin: 0; }
+    .session-status { font-size: 13px; color: #52645d; }
+    .session-message { padding: 12px; margin-top: 14px; background: #e8f0e8; }
+    .session-message.error { background: #fde8e8; }
+    .field-error { color: #a22; font-weight: 400; }
+    @media (max-width: 650px) { .schedule-fields { grid-template-columns: 1fr; } .session-row { align-items: flex-start; flex-direction: column; } }
+</style>
+{% endblock %}

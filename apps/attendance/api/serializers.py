@@ -9,6 +9,10 @@ class CloseSessionSerializer(serializers.Serializer):
     headcount = serializers.IntegerField(min_value=0)
 
 
+class ExtendSessionSerializer(serializers.Serializer):
+    extra_minutes = serializers.IntegerField(min_value=1, max_value=120)
+
+
 class QRTokenSerializer(serializers.Serializer):
     session_id = serializers.UUIDField()
 
@@ -18,6 +22,8 @@ class SessionSerializer(serializers.Serializer):
     course_id = serializers.UUIDField()
     room_id = serializers.UUIDField()
     status = serializers.CharField()
+    scheduled_start_at = serializers.DateTimeField(allow_null=True)
+    scheduled_end_at = serializers.DateTimeField(allow_null=True)
     opened_at = serializers.DateTimeField(allow_null=True)
     closed_at = serializers.DateTimeField(allow_null=True)
     finalized_at = serializers.DateTimeField(allow_null=True)
@@ -32,16 +38,16 @@ class BeginCheckInSerializer(serializers.Serializer):
 
 
 class LocationSerializer(serializers.Serializer):
-    lat = serializers.FloatField(required=False, allow_null=True)
-    lng = serializers.FloatField(required=False, allow_null=True)
-    accuracy_m = serializers.FloatField(required=False, allow_null=True)
-    timestamp = serializers.FloatField(required=False, allow_null=True)
+    lat = serializers.FloatField(min_value=-90, max_value=90)
+    lng = serializers.FloatField(min_value=-180, max_value=180)
+    accuracy_m = serializers.FloatField(min_value=0)
+    timestamp = serializers.FloatField()
 
 
 class CompleteCheckInSerializer(serializers.Serializer):
     attempt_id = serializers.UUIDField()
     assertion = serializers.DictField()
-    location = LocationSerializer(required=False, allow_null=True)
+    location = LocationSerializer()
 
 
 class CheckInAttemptSerializer(serializers.Serializer):

@@ -227,23 +227,17 @@ See `.env.example` for the complete list of required environment variables.
 
 **Daily Class Session:**
 1. Log in with passkey at https://pomsom.akili.com.ng/login/
-2. Open `/teacher/classrooms/` to set your course's classroom point and check-in radius on the map
-3. Navigate to "My Sessions" or create new session
-4. Select course and room
-5. Open session for check-ins
-6. Display QR code on projector screen
-7. Monitor student check-ins in real-time
-8. Close session after class
-9. Review flagged check-ins (suspicious activity)
-10. Finalize attendance (approve/reject flagged entries)
+2. Open `/teacher/classrooms/`, select a course, pin its room, set the radius, and save
+3. Open `/teacher/sessions/` and schedule the course's start and end times
+4. Start check-in any time from 20 minutes before the scheduled start
+5. Display the rotating QR code on the classroom screen
+6. Close check-in early, reopen it before the scheduled end, or add up to 120 minutes (which reopens a closed session)
 
 **Teacher Dashboard:**
-- View upcoming sessions
-- See active session QR code
-- Monitor live check-ins
-- Review flagged check-ins
-- Approve/reject suspicious entries
-- View attendance reports per course
+- Manage classroom location and radius per course
+- Schedule class start and end times
+- Open and close check-in sessions and control extra time
+- Display the current session QR code
 
 #### 3. Student Flow
 
@@ -258,21 +252,15 @@ See `.env.example` for the complete list of required environment variables.
 **Daily Check-in Process:**
 1. Open https://pomsom.akili.com.ng on phone browser
 2. Log in with passkey (fingerprint/Face ID)
-3. See today's scheduled classes
-4. When teacher displays QR code:
-   - Allow camera access
-   - Scan QR code displayed in classroom
-   - Wait for location verification (GPS)
-   - Wait for passkey verification
-   - See check-in status (PRESENT or FLAGGED)
-5. If FLAGGED: Report to teacher for manual review
+3. Open the teacher's QR link or `/checkin/`
+4. Scan the QR using the camera, or paste the QR link
+5. Allow browser location access while physically in the saved classroom radius
+6. Verify with the passkey registered to your student account
+7. See the check-in status (PRESENT or FLAGGED)
 
 **Student Dashboard:**
-- View class schedule
-- Check attendance history
-- See attendance percentage per course
-- Receive early warning alerts (if attendance drops below threshold)
-- Manage passkeys (add/remove devices)
+- Complete a check-in for an open session when enrolled in its course
+- Manage registered passkeys at `/passkeys/`
 
 #### 4. Advisor Flow
 
@@ -291,13 +279,13 @@ See `.env.example` for the complete list of required environment variables.
 ```
 Student scans QR code
          ↓
-Is QR code fresh (within 20 seconds)?
+Is QR code fresh (within 15 seconds)?
          ↓ NO → FLAGGED (stale code)
          ↓ YES
 Is passkey valid and registered to student?
          ↓ NO → FLAGGED (invalid passkey)
          ↓ YES
-Is student physically in classroom (geolocation)?
+Is student physically inside the course's saved classroom radius (geolocation)?
          ↓ NO → FLAGGED (outside classroom)
          ↓ YES
 Is there suspicious activity?
@@ -309,9 +297,9 @@ Is there suspicious activity?
 ### Fraud Detection Rules
 
 A check-in is automatically FLAGGED if:
-- QR code is expired (> 20 seconds old)
+- QR code is expired (> 15 seconds old)
 - Passkey not registered to the student
-- Location outside classroom radius (> 100m accuracy threshold)
+- Location outside the saved classroom radius or GPS accuracy is too low
 - Multiple check-ins from same device for different students
 - Coordinates identical to another recent check-in (possible device sharing)
 - Network burst pattern (rapid successive check-ins)

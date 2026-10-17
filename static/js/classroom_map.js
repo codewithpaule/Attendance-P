@@ -19,10 +19,17 @@ if (mapElement && window.L) {
     let marker = null;
     let circle = null;
 
+    function syncRadiusValue() {
+        const radius = Number(radiusSlider.value || 100);
+        const safeRadius = Number.isFinite(radius) ? radius : 100;
+        radiusSlider.value = String(safeRadius);
+        radiusField.value = String(safeRadius);
+        document.getElementById("radius-readout").textContent = `${safeRadius} m`;
+        return safeRadius;
+    }
+
     function updateCircle(position) {
-        const radius = Number(radiusSlider.value);
-        radiusField.value = radius;
-        document.getElementById("radius-readout").textContent = `${radius} m`;
+        const radius = syncRadiusValue();
         if (!circle) {
             circle = L.circle(position, {
                 radius,
@@ -40,7 +47,7 @@ if (mapElement && window.L) {
     function syncFields(position) {
         latitudeField.value = position.lat.toFixed(7);
         longitudeField.value = position.lng.toFixed(7);
-        radiusField.value = radiusSlider.value;
+        syncRadiusValue();
         readout.textContent = `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`;
         status.textContent = "Location set";
         saveButton.disabled = false;
@@ -57,12 +64,15 @@ if (mapElement && window.L) {
 
     map.on("click", (event) => syncFields(event.latlng));
     radiusSlider.addEventListener("input", () => {
+        syncRadiusValue();
         if (marker) updateCircle(marker.getLatLng());
-        else document.getElementById("radius-readout").textContent = `${radiusSlider.value} m`;
     });
 
     if (mapElement.dataset.hasLocation === "true") {
+        syncRadiusValue();
         syncFields(L.latLng(center[0], center[1]));
+    } else {
+        syncRadiusValue();
     }
 
     window.addEventListener("load", () => map.invalidateSize());

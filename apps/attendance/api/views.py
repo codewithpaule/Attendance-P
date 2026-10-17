@@ -4,20 +4,24 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from apps.accounts.selectors.functions import list_passkeys
 from apps.attendance.api.serializers import (
     BeginCheckInSerializer,
     CheckInSerializer,
     CloseSessionSerializer,
     CompleteCheckInSerializer,
+    ExtendSessionSerializer,
     OpenSessionSerializer,
     SessionSerializer,
 )
 from apps.attendance.services.checkin import begin_checkin, complete_checkin
 from apps.attendance.services.session import (
     close_session,
+    extend_session,
     finalize_session,
     generate_qr_token,
     open_session,
+    reopen_session,
 )
 from apps.core.clock import DefaultClock
 from apps.core.permissions import IsStudent, IsTeacher
@@ -57,6 +61,27 @@ def close_session_view(request: Request, session_id: str) -> Response:
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, IsTeacher])
+def reopen_session_view(request: Request, session_id: str) -> Response:
+    session = reopen_session(session_id, request.user, DefaultClock())
+    return Response(SessionSerializer(session).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsTeacher])
+def extend_session_view(request: Request, session_id: str) -> Response:
+    serializer = ExtendSessionSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    session = extend_session(
+        session_id=session_id,
+        teacher=request.user,
+        extra_minutes=serializer.validated_data["extra_minutes"],
+        clock=DefaultClock(),
+    )
+    return Response(SessionSerializer(session).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsTeacher])
 def finalize_session_view(request: Request, session_id: str) -> Response:
     session = finalize_session(session_id, request.user, DefaultClock())
 
@@ -90,11 +115,16 @@ def begin_checkin_view(request: Request) -> Response:
         max_age_seconds=settings.QR_TOKEN_MAX_AGE_SECONDS,
     )
 
+    credentials = list_passkeys(request.user)
+
     return Response(
         {
             "attempt_id": str(attempt.id),
             "challenge": attempt.challenge,
             "expires_at": attempt.expires_at.isoformat(),
+            "rp_id": settings.WEBAUTHN_RP_ID,
+            "timeout": 60000,
+            "allow_credentials": [credential.credential_id for credential in credentials],
         }
     )
 

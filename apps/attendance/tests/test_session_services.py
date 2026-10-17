@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 from django.utils import timezone
 
@@ -6,12 +8,22 @@ from apps.accounts.models import User
 from apps.attendance.models import ClassSession
 from apps.attendance.services.session import (
     close_session,
+    extend_session,
     finalize_session,
     generate_qr_token,
     open_session,
+    reopen_session,
 )
 from apps.core.clock import DefaultClock
 from apps.core.exceptions import BadRequestError, ConflictError, NotFoundError
+
+
+class FrozenClock:
+    def __init__(self, current_time):
+        self.current_time = current_time
+
+    def now(self):
+        return self.current_time
 
 
 @pytest.mark.django_db
@@ -35,6 +47,90 @@ def test_open_session_success():
     assert opened_session.status == ClassSession.Status.OPEN
     assert opened_session.opened_at is not None
     assert opened_session.checkin_window_minutes == 15
+
+
+@pytest.mark.django_db
+def test_open_session_is_allowed_exactly_20_minutes_before_start():
+    term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
+    room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
+    teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
+    course = Course.objects.create(code="CS101", title="Intro to CS", term=term, teacher=teacher, default_room=room)
+    now = timezone.now()
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        scheduled_start_at=now + timedelta(minutes=20),
+        scheduled_end_at=now + timedelta(hours=1),
+    )
+
+    opened = open_session(str(session.id), teacher, 15, FrozenClock(now))
+
+    assert opened.status == ClassSession.Status.OPEN
+
+
+@pytest.mark.django_db
+def test_open_session_is_rejected_more_than_20_minutes_early():
+    term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
+    room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
+    teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
+    course = Course.objects.create(code="CS101", title="Intro to CS", term=term, teacher=teacher, default_room=room)
+    now = timezone.now()
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        scheduled_start_at=now + timedelta(minutes=21),
+        scheduled_end_at=now + timedelta(hours=1),
+    )
+
+    with pytest.raises(BadRequestError, match="20 minutes before"):
+        open_session(str(session.id), teacher, 15, FrozenClock(now))
+
+
+@pytest.mark.django_db
+def test_teacher_can_extend_closed_session_and_reopen_scanning():
+    term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
+    room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
+    teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
+    other_teacher = User.objects.create_user(email="other@example.com", full_name="Other", role="teacher")
+    course = Course.objects.create(code="CS101", title="Intro to CS", term=term, teacher=teacher, default_room=room)
+    now = timezone.now()
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.CLOSED,
+        scheduled_end_at=now - timedelta(minutes=5),
+    )
+
+    extended = extend_session(str(session.id), teacher, 10, FrozenClock(now))
+
+    assert extended.status == ClassSession.Status.OPEN
+    assert extended.scheduled_end_at == now + timedelta(minutes=10)
+    with pytest.raises(NotFoundError):
+        extend_session(str(session.id), other_teacher, 10, FrozenClock(now))
+
+
+@pytest.mark.django_db
+def test_teacher_can_reopen_closed_session_before_scheduled_end():
+    term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
+    room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
+    teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
+    course = Course.objects.create(code="CS101", title="Intro to CS", term=term, teacher=teacher, default_room=room)
+    now = timezone.now()
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.CLOSED,
+        scheduled_end_at=now + timedelta(minutes=5),
+    )
+
+    reopened = reopen_session(str(session.id), teacher, FrozenClock(now))
+
+    assert reopened.status == ClassSession.Status.OPEN
+    assert reopened.closed_at is None
 
 
 @pytest.mark.django_db
@@ -237,6 +333,30 @@ def test_generate_qr_token_not_open_fails():
             teacher=teacher,
             max_age_seconds=20,
         )
+
+
+@pytest.mark.django_db
+def test_scheduled_end_automatically_closes_session_and_stops_qr():
+    term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
+    room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
+    teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
+    course = Course.objects.create(code="CS101", title="Intro to CS", term=term, teacher=teacher, default_room=room)
+    now = timezone.now()
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.OPEN,
+        scheduled_start_at=now - timedelta(hours=1),
+        scheduled_end_at=now - timedelta(seconds=1),
+    )
+
+    with pytest.raises(BadRequestError, match="Session is not open"):
+        generate_qr_token(str(session.id), teacher, 15)
+
+    session.refresh_from_db()
+    assert session.status == ClassSession.Status.CLOSED
+    assert session.closed_at == session.scheduled_end_at
 
 
 @pytest.mark.django_db

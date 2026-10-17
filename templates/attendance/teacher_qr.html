@@ -9,15 +9,11 @@
 
         <div id="error-message" class="alert alert-error" style="display: none;"></div>
 
+        {% if session.status == "OPEN" %}
         <div id="qr-container" style="margin: 20px 0;">
             <div style="width: 300px; height: 300px; background: #f0f0ea; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
                 <span style="color: #8a8a7a;">Loading QR code...</span>
             </div>
-        </div>
-
-        <div style="margin: 20px 0; padding: 20px; background: #f5f5f0; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #4a4a3a;" id="checkin-count">0</div>
-            <div style="color: #6a6a5a; font-size: 14px;">Students checked in</div>
         </div>
 
         <div style="margin-top: 20px;">
@@ -25,18 +21,38 @@
                 Close Session
             </button>
         </div>
+        {% elif session.status == "CLOSED" %}
+        <p>This session is closed. You can reopen it before the scheduled end, or add minutes to reopen it.</p>
+        <button id="reopen-session-btn" class="btn btn-primary" type="button">Reopen check-in</button>
+        {% else %}
+        <p>This session is {{ session.get_status_display|lower }}.</p>
+        {% endif %}
+
+        {% if session.status == "OPEN" or session.status == "CLOSED" %}
+        <div style="margin-top: 18px;">
+            <label for="extra-minutes">Add minutes and reopen</label>
+            <input id="extra-minutes" type="number" min="1" max="120" value="10" style="width: 90px; padding: 8px;">
+            <button id="extend-session-btn" class="btn btn-primary" type="button">Extend time</button>
+        </div>
+        {% endif %}
 
         <p style="margin-top: 20px; color: #8a8a7a; font-size: 12px;">
             QR refreshes every 10 seconds
         </p>
     </div>
 </div>
+<form id="csrf-token-form" hidden>{% csrf_token %}</form>
 {% endblock %}
 
 {% block scripts %}
 <script type="module">
     const sessionId = '{{ session_id }}';
+    const sessionStatus = '{{ session.status }}';
     let refreshInterval;
+
+    function csrfToken() {
+        return document.querySelector('#csrf-token-form [name="csrfmiddlewaretoken"]')?.value || '';
+    }
 
     async function loadQRToken() {
         try {
@@ -50,7 +66,7 @@
             const url = `${window.location.origin}/c/${sessionId}/?t=${data.token}`;
             
             const qrContainer = document.getElementById('qr-container');
-            qrContainer.innerHTML = `<div id="qrcode" style="width: 300px; height: 300px; margin: 0 auto;"></div>`;
+            qrContainer.innerHTML = `<canvas id="qrcode" width="300" height="300" style="display: block; margin: 0 auto;"></canvas>`;
 
             // Use qrcode.js library (will load from CDN)
             const script = document.createElement('script');
@@ -73,27 +89,14 @@
         }
     }
 
-    async function updateCheckinCount() {
-        try {
-            // This would be implemented in a later phase
-            // For now, we'll just show a placeholder
-            const count = Math.floor(Math.random() * 20);
-            document.getElementById('checkin-count').textContent = count;
-        } catch (error) {
-            console.error('Failed to update count:', error);
-        }
-    }
-
     function startPolling() {
         loadQRToken();
-        updateCheckinCount();
         refreshInterval = setInterval(() => {
             loadQRToken();
-            updateCheckinCount();
         }, 10000);
     }
 
-    document.getElementById('close-session-btn').addEventListener('click', async () => {
+    document.getElementById('close-session-btn')?.addEventListener('click', async () => {
         if (!confirm('Are you sure you want to close this session?')) return;
 
         const btn = document.getElementById('close-session-btn');
@@ -108,7 +111,7 @@
 
             const response = await fetch(`/api/v1/sessions/${sessionId}/close`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
                 body: JSON.stringify({ headcount: parseInt(headcount) })
             });
 
@@ -121,8 +124,7 @@
             showToast('Session closed successfully!', 'success');
             clearInterval(refreshInterval);
             
-            // Redirect to review page (to be implemented)
-            window.location.href = '/';
+            window.location.reload();
         } catch (error) {
             showToast(error.message, 'error');
         } finally {
@@ -130,6 +132,40 @@
         }
     });
 
-    startPolling();
+    document.getElementById('reopen-session-btn')?.addEventListener('click', async () => {
+        try {
+            const response = await fetch(`/api/v1/sessions/${sessionId}/reopen`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken() },
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error?.message || 'Could not reopen session');
+            window.location.reload();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    document.getElementById('extend-session-btn')?.addEventListener('click', async () => {
+        const extraMinutes = Number(document.getElementById('extra-minutes').value);
+        if (!Number.isInteger(extraMinutes) || extraMinutes < 1 || extraMinutes > 120) {
+            showToast('Enter between 1 and 120 extra minutes.', 'error');
+            return;
+        }
+        try {
+            const response = await fetch(`/api/v1/sessions/${sessionId}/extend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+                body: JSON.stringify({ extra_minutes: extraMinutes }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error?.message || 'Could not extend session');
+            window.location.reload();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    if (sessionStatus === 'OPEN') startPolling();
 </script>
 {% endblock %}
