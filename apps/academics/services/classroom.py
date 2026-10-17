@@ -18,8 +18,7 @@ def save_classroom_location(
     radius_m: int,
 ) -> Room:
     course = (
-        Course.objects.select_for_update()
-        .filter(id=course_id, teacher=teacher)
+        Course.objects.filter(id=course_id, teacher=teacher)
         .select_related("default_room")
         .first()
     )

@@ -47,7 +47,7 @@
                 throw new Error(data.error?.message || 'Failed to load QR token');
             }
 
-            const url = `https://${window.location.host}/c/${sessionId}/?t=${data.token}`;
+            const url = `${window.location.origin}/c/${sessionId}/?t=${data.token}`;
             
             const qrContainer = document.getElementById('qr-container');
             qrContainer.innerHTML = `<div id="qrcode" style="width: 300px; height: 300px; margin: 0 auto;"></div>`;

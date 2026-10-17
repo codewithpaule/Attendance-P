@@ -11,5 +11,5 @@ def teacher_qr_view(request, session_id):
 
 @login_required(login_url="login")
 @require_http_methods(["GET"])
-def student_checkin_view(request):
-    return render(request, "attendance/checkin.html")
+def student_checkin_view(request, session_id=None):
+    return render(request, "attendance/checkin.html", {"session_id": session_id})
