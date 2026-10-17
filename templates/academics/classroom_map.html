@@ -30,6 +30,12 @@
             </select>
         </form>
 
+        {% if active_session_id %}
+            <div class="session-banner">
+                <a href="{% url 'teacher_qr' active_session_id %}" class="qr-link">Open live QR code</a>
+            </div>
+        {% endif %}
+
         <form method="post" class="location-layout" id="classroom-form">
             {% csrf_token %}
             <input type="hidden" name="course_id" value="{{ selected_course.id }}">

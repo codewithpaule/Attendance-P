@@ -11,6 +11,7 @@ from apps.academics.selectors.functions import get_courses_for_teacher
 from apps.academics.services.classroom import save_classroom_location
 from apps.academics.web.forms import ClassroomLocationForm
 from apps.accounts.models import User
+from apps.attendance.models import ClassSession
 
 
 @login_required(login_url="login")
@@ -33,6 +34,11 @@ def classroom_map_view(request):
     room_is_shared = bool(
         room and Course.objects.filter(default_room=room).exclude(pk=course.pk).exists()
     )
+    active_session = ClassSession.objects.filter(
+        course=course,
+        teacher=request.user,
+        status=ClassSession.Status.OPEN,
+    ).first()
 
     if request.method == "POST":
         form = ClassroomLocationForm(request.POST, room=room, room_is_shared=room_is_shared)
@@ -52,7 +58,7 @@ def classroom_map_view(request):
                 "room_name": room.name if room else f"{course.code} classroom",
                 "latitude": room.latitude if room else "",
                 "longitude": room.longitude if room else "",
-                "radius_m": room.radius_m if room else 100,
+                "radius_m": room.radius_m if room else 50,
             },
             room=room,
             room_is_shared=room_is_shared,
@@ -61,7 +67,7 @@ def classroom_map_view(request):
     initial_latitude = room.latitude if room else Decimal("6.5244")
     initial_longitude = room.longitude if room else Decimal("3.3792")
     has_location = bool(room)
-    radius = room.radius_m if room else 100
+    radius = room.radius_m if room else 50
     if form.is_bound:
         try:
             latitude_value = form["latitude"].value()
@@ -87,5 +93,6 @@ def classroom_map_view(request):
             "map_longitude": initial_longitude,
             "has_location": has_location,
             "radius": radius,
+            "active_session_id": str(active_session.id) if active_session else None,
         },
     )

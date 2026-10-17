@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from apps.academics.models import Course, Room, Term
 from apps.accounts.models import User
+from apps.attendance.models import ClassSession
 from apps.audit.models import AuditLog
 
 
@@ -174,6 +175,30 @@ def test_shared_room_requires_a_distinct_name_to_fork(client, teacher, course):
     room.refresh_from_db()
     assert float(room.latitude) == pytest.approx(6.5)
     assert room.radius_m == 100
+
+
+@pytest.mark.django_db
+def test_teacher_classroom_map_shows_qr_link_for_active_session(client, teacher, course):
+    room = Room.objects.create(
+        name="Engineering Hall",
+        latitude="6.5244000",
+        longitude="3.3792000",
+        radius_m=50,
+    )
+    course.default_room = room
+    course.save()
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.OPEN,
+    )
+    client.force_login(teacher)
+
+    response = client.get(reverse("classroom_map"))
+
+    assert response.status_code == 200
+    assert f"/teacher/qr/{session.id}/" in response.content.decode()
 
 
 @pytest.mark.django_db
