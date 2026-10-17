@@ -1,7 +1,71 @@
 from dataclasses import dataclass
+from math import ceil
 
 DEFAULT_ATTENDANCE_THRESHOLD_PCT = 80
 DEFAULT_MIN_SESSIONS_BEFORE_WARNING = 3
+
+
+@dataclass(frozen=True)
+class AttendanceForecast:
+    current_percentage: int | None
+    projected_percentage: int | None
+    maximum_possible_percentage: int | None
+    completed_sessions: int
+    remaining_sessions: int
+    sessions_needed_to_reach_threshold: int
+    can_reach_threshold: bool
+    below_threshold: bool
+
+
+def forecast_attendance(
+    present_sessions: int,
+    completed_sessions: int,
+    planned_sessions: int,
+    threshold_pct: int = DEFAULT_ATTENDANCE_THRESHOLD_PCT,
+) -> AttendanceForecast:
+    if min(present_sessions, completed_sessions, planned_sessions) < 0:
+        raise ValueError("Session counts cannot be negative")
+    if present_sessions > completed_sessions:
+        raise ValueError("Present sessions cannot exceed completed sessions")
+    if not 0 <= threshold_pct <= 100:
+        raise ValueError("Attendance threshold must be between 0 and 100")
+
+    total_sessions = max(planned_sessions, completed_sessions)
+    remaining_sessions = total_sessions - completed_sessions
+    current_percentage = (
+        round(100 * present_sessions / completed_sessions)
+        if completed_sessions
+        else None
+    )
+    projected_percentage = (
+        round(
+            100
+            * (present_sessions + current_percentage / 100 * remaining_sessions)
+            / total_sessions
+        )
+        if current_percentage is not None and total_sessions
+        else None
+    )
+    maximum_possible_percentage = (
+        round(100 * (present_sessions + remaining_sessions) / total_sessions)
+        if total_sessions
+        else None
+    )
+    sessions_needed = max(
+        ceil(threshold_pct * total_sessions / 100) - present_sessions,
+        0,
+    )
+
+    return AttendanceForecast(
+        current_percentage=current_percentage,
+        projected_percentage=projected_percentage,
+        maximum_possible_percentage=maximum_possible_percentage,
+        completed_sessions=completed_sessions,
+        remaining_sessions=remaining_sessions,
+        sessions_needed_to_reach_threshold=sessions_needed,
+        can_reach_threshold=sessions_needed <= remaining_sessions,
+        below_threshold=current_percentage is not None and current_percentage < threshold_pct,
+    )
 
 
 @dataclass

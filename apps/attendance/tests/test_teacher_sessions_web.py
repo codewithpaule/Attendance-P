@@ -321,7 +321,7 @@ def test_teacher_can_review_flagged_checkin_from_roster(client):
 
 
 @pytest.mark.django_db
-def test_teacher_roster_warns_when_attendance_is_below_80_percent(client):
+def test_teacher_can_cancel_flagged_checkin_for_student_retry(client):
     teacher = User.objects.create_user(
         email="teacher@example.com",
         full_name="Teacher",
@@ -332,7 +332,6 @@ def test_teacher_roster_warns_when_attendance_is_below_80_percent(client):
         email="student@example.com",
         full_name="Student Example",
         role=User.Role.STUDENT,
-        student_number="S-103",
         is_active=True,
     )
     term = Term.objects.create(
@@ -355,27 +354,30 @@ def test_teacher_roster_warns_when_attendance_is_below_80_percent(client):
         default_room=room,
     )
     Enrollment.objects.create(course=course, student=student)
-    sessions = [
-        ClassSession.objects.create(
-            course=course,
-            room=room,
-            teacher=teacher,
-            status=ClassSession.Status.CLOSED,
-        )
-        for _ in range(4)
-    ]
-    for session in sessions[:3]:
-        CheckIn.objects.create(
-            session=session,
-            student=student,
-            status=CheckIn.Status.PRESENT,
-            device_hint="device",
-            checked_in_at=timezone.now(),
-        )
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.CLOSED,
+    )
+    checkin = CheckIn.objects.create(
+        session=session,
+        student=student,
+        status=CheckIn.Status.FLAGGED,
+        flag_reasons=["NEW_CREDENTIAL"],
+        device_hint="device",
+        checked_in_at=timezone.now(),
+    )
     client.force_login(teacher)
 
-    response = client.get(f"/teacher/sessions/{sessions[-1].id}/attendance/")
+    response = client.post(
+        f"/teacher/sessions/{session.id}/attendance/",
+        {
+            "action": "cancel_for_retry",
+            "checkin_id": str(checkin.id),
+            "note": "Please scan again in class",
+        },
+    )
 
-    assert response.status_code == 200
-    assert b"75%" in response.content
-    assert b"Warning below 80%" in response.content
+    assert response.status_code == 302
+    assert not CheckIn.objects.filter(id=checkin.id).exists()

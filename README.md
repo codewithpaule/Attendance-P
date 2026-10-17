@@ -10,8 +10,8 @@ The application uses Django, Django REST Framework, SQLite for local development
 - Teachers set the classroom point and allowed radius for each course, schedule class times, open check-in, and display a QR code.
 - Students scan the QR code, share their current location, and confirm their registered passkey.
 - The system records the check-in location with that attendance record. It does not save a permanent student profile location or track location continuously.
-- Teachers view enrolled students and attendance status, inspect flag reasons, review flagged records, and finalize closed sessions.
-- The teacher roster shows an attendance warning when attendance is below the configured threshold. The default is 80 percent after at least three completed sessions.
+- Teachers view enrolled students and attendance status, inspect flag reasons, review flagged records, cancel a flagged check-in to allow a rescan, and finalize closed sessions.
+- Students see an attendance forecast for each enrolled course. The default eligibility target is 80 percent.
 
 ## Local Setup
 
@@ -73,8 +73,9 @@ ruff check .
 4. Create student accounts with email, full name, and student number. A student number is required.
 5. Under Academics, create courses and assign each course to its teacher and term.
 6. Enroll students in courses by creating Enrollment records in Django admin.
-7. Optionally create an Eligibility Policy. A course-specific policy takes priority over a global policy. Without either, the teacher roster uses the 80 percent default.
-8. If an activation email does not arrive, select the pending account in Accounts and use the Resend activation email action. Email delivery requires valid Resend settings.
+7. Set each course's Planned sessions field to the expected number of class meetings. The student forecast uses this value to calculate remaining classes.
+8. Optionally create an Eligibility Policy. A course-specific policy takes priority over a global policy. Without either, the student forecast uses the 80 percent default.
+9. If an activation email does not arrive, select the pending account in Accounts and use the Resend activation email action. Email delivery requires valid Resend settings.
 
 The admin interface does not currently provide CSV import screens. Create users, courses, and enrollments through the admin forms or use the documented API.
 
@@ -114,31 +115,37 @@ Passkeys are tied to the website domain and browser credential store. Use the sa
 2. The roster includes all students enrolled in the course, including students who have not checked in.
 3. Review each student's status, check-in time, distance from the room, GPS accuracy, attendance percentage, and flag reasons.
 4. For each flagged check-in, choose Approve present or Mark absent. Add a note when useful. The system records who reviewed it and when.
-5. Close the session before finalizing. Resolve all flagged check-ins and pending spot checks first. Finalize attendance from the roster for a closed session.
+5. Choose Cancel for retry only when the student should scan again. This removes the flagged attendance row, writes an audit entry, and frees that student to check in again for the same session.
+6. Close the session before finalizing. Resolve or cancel all flagged check-ins and resolve pending spot checks first. Finalize attendance from the roster for a closed session.
 
-### Attendance Warning Calculation
+### Student Attendance Forecast
 
-The roster calculates attendance as:
+Students open `/student/attendance/` from the link on the check-in page. The page forecasts each enrolled course separately. It displays current attendance, a projected result if the current attendance rate continues, the best possible result if every remaining planned class is attended, and how many remaining classes are needed to reach the target.
+
+The calculation is:
 
 ```text
-present check-ins in completed sessions / number of completed sessions * 100
+current attendance = present check-ins / completed class sessions * 100
+projected attendance = (present check-ins + current attendance rate * remaining planned sessions) / planned sessions * 100
+classes needed = ceil(target percentage * planned sessions / 100) - present check-ins
 ```
 
-Only closed or finalized class sessions are included. A check-in contributes to the numerator when its final status is Present. A flagged check-in does not count as present until a teacher approves it. A completed class with no present check-in counts as not present.
+Only closed or finalized class sessions are counted as completed. A check-in contributes to the numerator when its final status is Present. A flagged check-in does not count as present until a teacher approves it. A completed class with no present check-in counts as not present. The semester start and end dates come from the course's Term record. The planned class count comes from the Course Planned sessions field.
 
-The default warning threshold is 80 percent. The roster shows a warning after at least three completed sessions when attendance is below the threshold. A course-specific Eligibility Policy overrides the global policy. A global policy overrides the default.
+The default target is 80 percent. A course-specific Eligibility Policy overrides the global policy. A global policy overrides the default. The forecast is a rule-based estimate, not a guarantee. It assumes the student's current attendance rate continues for the projection and separately reports whether reaching the target is still mathematically possible by attending enough remaining classes.
 
-The background attendance-risk evaluator and email notification dispatcher are not implemented. The warning described here appears on the teacher attendance roster. It does not currently send automatic email or in-app alerts.
+The background attendance-risk evaluator and email notification dispatcher are not implemented. The forecast appears on the student's page and does not currently send automatic email or in-app alerts.
 
 ## Student Workflow
 
 1. Activate the account and register a passkey.
 2. Sign in on the phone or browser with that passkey.
-3. Open the teacher's live QR link or go to `/checkin/` and scan the displayed code with the camera. Pasting the QR link is also supported.
-4. Allow location access when asked. Location is requested for this check-in only.
-5. The browser checks the reading against the saved classroom point and radius. If outside the area, go to class and share the location again.
-6. Confirm identity with the passkey registered to this student account.
-7. Read the result. A successful check-in records the current location with that attendance record. A flagged check-in needs teacher review.
+3. Use the Attendance forecast link to review course standing and remaining classes.
+4. Open the teacher's live QR link or go to `/checkin/` and scan the displayed code with the camera. Pasting the QR link is also supported.
+5. Allow location access when asked. Location is requested for this check-in only.
+6. The browser checks the reading against the saved classroom point and radius. If outside the area, go to class and share the location again.
+7. Confirm identity with the passkey registered to this student account.
+8. Read the result. A successful check-in records the current location with that attendance record. A flagged check-in needs teacher review.
 
 A newly registered passkey may be flagged for review during its first 24 hours. Other flag reasons include low GPS accuracy, a location near the radius boundary, repeated device signals, or repeated coordinates. Teachers can see the reasons on the roster.
 
@@ -170,6 +177,7 @@ Camera access requires HTTPS or localhost. If camera scanning is unavailable, ch
 - `Low Gps Accuracy` means the device location estimate is too imprecise.
 - `Gps Borderline` means the location estimate is near the edge of the classroom radius.
 - The teacher can approve the check-in as present or mark it absent after review.
+- The teacher can cancel the flagged row for retry when the student needs to scan again.
 
 ### Classroom Page Shows a Database Column Error
 

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}My Attendance - POMSOM{% endblock %}
+
+{% block content %}
+<main class="student-attendance-page">
+    <header class="forecast-header">
+        <div>
+            <p class="eyebrow">STUDENT VIEW</p>
+            <h1>My attendance forecast</h1>
+            <p>See your current course attendance and whether 80% is still reachable by the end of the term.</p>
+        </div>
+        <a href="{% url 'student_checkin' %}">Go to check-in</a>
+    </header>
+
+    <div class="forecast-table-wrap">
+        <table class="forecast-table">
+            <thead>
+                <tr>
+                    <th scope="col">Course and term</th>
+                    <th scope="col">Current</th>
+                    <th scope="col">Projected if current rate continues</th>
+                    <th scope="col">If you attend every remaining class</th>
+                    <th scope="col">Target status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in forecasts %}
+                    <tr>
+                        <th scope="row">
+                            {{ item.course.code }} · {{ item.course.title }}
+                            <small>{{ item.course.term.name }} ({{ item.course.term.starts_on|date:"j M Y" }} to {{ item.course.term.ends_on|date:"j M Y" }})</small>
+                            <small>{{ item.forecast.completed_sessions }} of {{ item.course.planned_sessions }} planned classes completed</small>
+                        </th>
+                        <td>
+                            {% if item.forecast.current_percentage != None %}
+                                {{ item.forecast.current_percentage }}%
+                            {% else %}
+                                No completed classes
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.forecast.projected_percentage != None %}
+                                {{ item.forecast.projected_percentage }}%
+                            {% else %}
+                                Not enough attendance history yet
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.forecast.maximum_possible_percentage != None %}
+                                {{ item.forecast.maximum_possible_percentage }}%
+                                <small>{{ item.forecast.sessions_needed_to_reach_threshold }} of {{ item.forecast.remaining_sessions }} remaining classes needed for {{ item.threshold }}%</small>
+                            {% else %}
+                                Planned class count is not set
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.forecast.current_percentage == None %}
+                                <span class="forecast-status neutral">Building history</span>
+                            {% elif item.warning_active and item.forecast.can_reach_threshold %}
+                                <span class="forecast-status warning">Below target, still reachable</span>
+                            {% elif item.warning_active %}
+                                <span class="forecast-status critical">At risk, target not reachable on current plan</span>
+                            {% elif item.forecast.below_threshold %}
+                                <span class="forecast-status neutral">Below target; forecast after {{ item.min_sessions }} completed classes</span>
+                            {% else %}
+                                <span class="forecast-status good">On track</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">You are not enrolled in any courses yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<style>
+    .student-attendance-page { max-width: 1120px; margin: 28px auto; color: #20302d; }
+    .forecast-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-bottom: 22px; border-bottom: 1px solid #cad5d0; }
+    .eyebrow { color: #37685b; font-size: 12px; font-weight: 700; }
+    .forecast-header h1 { margin: 7px 0; font-size: 28px; }
+    .forecast-header p:not(.eyebrow) { color: #52645d; }
+    .forecast-table-wrap { overflow-x: auto; }
+    .forecast-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .forecast-table th, .forecast-table td { padding: 15px 11px; border-bottom: 1px solid #e0e7e3; vertical-align: top; }
+    .forecast-table thead th { color: #52645d; font-size: 12px; text-transform: uppercase; }
+    .forecast-table tbody th { min-width: 200px; font-weight: 600; }
+    .forecast-table small { display: block; margin-top: 5px; color: #607168; font-size: 12px; font-weight: 400; }
+    .forecast-status { display: inline-block; padding: 5px 8px; border-radius: 3px; font-size: 12px; }
+    .forecast-status.good { background: #e1f0e7; color: #1f6843; }
+    .forecast-status.warning { background: #fff0d6; color: #8a5710; }
+    .forecast-status.critical { background: #fde8e8; color: #8b3a3a; }
+    .forecast-status.neutral { background: #edf0ee; color: #52645d; }
+    @media (max-width: 700px) { .forecast-header { align-items: flex-start; flex-direction: column; } .forecast-table { min-width: 900px; } }
+</style>
+{% endblock %}

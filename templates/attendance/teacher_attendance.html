@@ -28,22 +28,12 @@
         <div><strong>{{ absent_count }}</strong><span>Absent</span></div>
         <div><strong>{{ not_checked_in_count }}</strong><span>Not checked in</span></div>
         <div><strong>{{ roster|length }}</strong><span>Enrolled</span></div>
-        <div><strong>{{ warning_count }}</strong><span>Below {{ warning_threshold }}% attendance</span></div>
     </section>
 
     <div class="roster-table-wrap">
         <table class="roster-table">
             <thead>
                 <tr>
-                    <th scope="col">Student</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Check-in</th>
-                    <th scope="col">Course attendance</th>
-                    <th scope="col">Location</th>
-                    <th scope="col">Review / flags</th>
-                    <th scope="col">Teacher action</th>
-                </tr>
-            </thead>
             <tbody>
                 {% for row in roster %}
                     <tr>
@@ -55,14 +45,6 @@
                             <td><span class="status status-{{ row.checkin.status|lower }}">{{ row.checkin.get_status_display }}</span></td>
                             <td>{{ row.checkin.checked_in_at|date:"H:i:s" }}</td>
                             <td>
-                                {% if row.attendance_pct != None %}
-                                    {{ row.attendance_pct }}%
-                                    {% if row.attendance_warning %}<span class="flag-reason">Warning below {{ warning_threshold }}%</span>{% endif %}
-                                {% else %}
-                                    <small>No completed classes yet</small>
-                                {% endif %}
-                            </td>
-                            <td>
                                 {% if row.checkin.distance_m != None %}
                                     {{ row.checkin.distance_m|floatformat:0 }} m from room
                                     {% if row.checkin.accuracy_m != None %}<small>GPS ±{{ row.checkin.accuracy_m|floatformat:0 }} m</small>{% endif %}
@@ -73,6 +55,7 @@
                             <td>
                                 {% if row.checkin.display_flag_reasons %}
                                     {% for reason in row.checkin.display_flag_reasons %}<span class="flag-reason">{{ reason }}</span>{% endfor %}
+                                            <button type="submit" name="action" value="cancel_for_retry">Cancel for retry</button>
                                 {% elif row.checkin.reviewed_by %}
                                     <small>Reviewed by {{ row.checkin.reviewed_by.full_name }}</small>
                                     {% if row.checkin.review_note %}<small>{{ row.checkin.review_note }}</small>{% endif %}
@@ -90,7 +73,8 @@
                                         <input id="note-{{ row.checkin.id }}" name="note" maxlength="500" placeholder="Optional note">
                                         <div class="review-buttons">
                                             <button type="submit" name="decision" value="PRESENT">Approve present</button>
-                                            <button type="submit" name="decision" value="ABSENT">Mark absent</button>
+                    <tr><td colspan="6">No students are enrolled in this course.</td></tr>
+                                            <button type="submit" formmethod="post" formaction="{% url 'teacher_session_attendance' session.id %}" name="action" value="cancel_for_retry">Cancel for retry</button>
                                         </div>
                                     </form>
                                 {% elif row.checkin.reviewed_at %}
@@ -102,21 +86,13 @@
                         {% else %}
                             <td><span class="status status-pending">Not checked in</span></td>
                             <td>—</td>
-                            <td>
-                                {% if row.attendance_pct != None %}
-                                    {{ row.attendance_pct }}%
-                                    {% if row.attendance_warning %}<span class="flag-reason">Warning below {{ warning_threshold }}%</span>{% endif %}
-                                {% else %}
-                                    <small>No completed classes yet</small>
-                                {% endif %}
-                            </td>
                             <td>—</td>
                             <td>—</td>
                             <td>—</td>
                         {% endif %}
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7">No students are enrolled in this course.</td></tr>
+                    <tr><td colspan="6">No students are enrolled in this course.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
