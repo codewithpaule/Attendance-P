@@ -96,12 +96,13 @@ This guide covers deploying the POMSOM attendance system to Vercel with Neon Pos
 
 ## Step 5: Run Initial Migration
 
-1. Manually trigger the migrate workflow:
+1. Ensure the GitHub repository has `DATABASE_URL_DIRECT` and `SECRET_KEY` Actions secrets.
+2. Manually trigger the `migrate` workflow from GitHub Actions using the branch containing the migration:
    - Go to GitHub Actions > migrate
    - Click "Run workflow"
-   - This runs migrations using DATABASE_URL_DIRECT
+   - The workflow uses the direct Neon connection and runs `migrate --fake-initial` so existing tables are recorded without being recreated.
 
-2. Verify migration success:
+3. Verify migration success:
    - Check the workflow logs
    - Ensure all migrations applied successfully
 
