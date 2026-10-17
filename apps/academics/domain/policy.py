@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+DEFAULT_ATTENDANCE_THRESHOLD_PCT = 80
+DEFAULT_MIN_SESSIONS_BEFORE_WARNING = 3
+
 
 @dataclass
 class EligibilityPolicyData:

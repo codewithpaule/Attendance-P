@@ -49,6 +49,7 @@
                 </div>
                 <div class="session-actions">
                     <span class="session-status">{{ session.get_status_display }}</span>
+                    <a href="{% url 'teacher_session_attendance' session.id %}">Attendance roster</a>
                     {% if session.status == "SCHEDULED" %}
                         <form method="post">
                             {% csrf_token %}

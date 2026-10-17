@@ -1,5 +1,6 @@
 from django.db import models
 
+from apps.academics.domain.policy import DEFAULT_ATTENDANCE_THRESHOLD_PCT
 from apps.accounts.models import User
 from apps.core.models import BaseModel
 
@@ -57,7 +58,7 @@ class AdvisorAssignment(BaseModel):
 
 class EligibilityPolicy(BaseModel):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True)
-    threshold_pct = models.IntegerField(default=75)
+    threshold_pct = models.IntegerField(default=DEFAULT_ATTENDANCE_THRESHOLD_PCT)
     warning_buffer_pct = models.IntegerField(default=8)
     trend_window = models.IntegerField(default=4)
     min_sessions_before_alert = models.IntegerField(default=3)

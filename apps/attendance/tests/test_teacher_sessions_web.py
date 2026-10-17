@@ -5,9 +5,9 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.academics.models import Course, Room, Term
+from apps.academics.models import Course, Enrollment, Room, Term
 from apps.accounts.models import User
-from apps.attendance.models import ClassSession
+from apps.attendance.models import CheckIn, ClassSession
 
 
 @pytest.mark.django_db
@@ -178,3 +178,204 @@ def test_teacher_qr_page_has_image_target_and_live_status(client):
     assert b'id="qr-code-image"' in response.content
     assert b'id="qr-status"' in response.content
     assert b"qrcode.min.js" not in response.content
+
+
+@pytest.mark.django_db
+def test_teacher_attendance_roster_shows_names_status_and_flag_reasons(client):
+    teacher = User.objects.create_user(
+        email="teacher@example.com",
+        full_name="Teacher",
+        role=User.Role.TEACHER,
+        is_active=True,
+    )
+    flagged_student = User.objects.create_user(
+        email="flagged@example.com",
+        full_name="Flagged Student",
+        role=User.Role.STUDENT,
+        student_number="S-101",
+        is_active=True,
+    )
+    waiting_student = User.objects.create_user(
+        email="waiting@example.com",
+        full_name="Waiting Student",
+        role=User.Role.STUDENT,
+        student_number="S-102",
+        is_active=True,
+    )
+    term = Term.objects.create(
+        name="Term 1",
+        starts_on="2024-01-01",
+        ends_on="2024-06-30",
+        is_current=True,
+    )
+    room = Room.objects.create(
+        name="Room 101",
+        latitude=6.5244,
+        longitude=3.3792,
+        radius_m=50,
+    )
+    course = Course.objects.create(
+        code="CS101",
+        title="Intro to CS",
+        term=term,
+        teacher=teacher,
+        default_room=room,
+    )
+    Enrollment.objects.create(course=course, student=flagged_student)
+    Enrollment.objects.create(course=course, student=waiting_student)
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.CLOSED,
+    )
+    CheckIn.objects.create(
+        session=session,
+        student=flagged_student,
+        status=CheckIn.Status.FLAGGED,
+        latitude=6.5244,
+        longitude=3.3792,
+        accuracy_m=20,
+        distance_m=10,
+        flag_reasons=["NEW_CREDENTIAL"],
+        device_hint="device",
+        checked_in_at=timezone.now(),
+    )
+    client.force_login(teacher)
+
+    response = client.get(f"/teacher/sessions/{session.id}/attendance/")
+
+    assert response.status_code == 200
+    assert b"Flagged Student" in response.content
+    assert b"S-101" in response.content
+    assert b"New Credential" in response.content
+    assert b"Waiting Student" in response.content
+    assert b"Not checked in" in response.content
+
+
+@pytest.mark.django_db
+def test_teacher_can_review_flagged_checkin_from_roster(client):
+    teacher = User.objects.create_user(
+        email="teacher@example.com",
+        full_name="Teacher",
+        role=User.Role.TEACHER,
+        is_active=True,
+    )
+    student = User.objects.create_user(
+        email="student@example.com",
+        full_name="Student Example",
+        role=User.Role.STUDENT,
+        is_active=True,
+    )
+    term = Term.objects.create(
+        name="Term 1",
+        starts_on="2024-01-01",
+        ends_on="2024-06-30",
+        is_current=True,
+    )
+    room = Room.objects.create(
+        name="Room 101",
+        latitude=6.5244,
+        longitude=3.3792,
+        radius_m=50,
+    )
+    course = Course.objects.create(
+        code="CS101",
+        title="Intro to CS",
+        term=term,
+        teacher=teacher,
+        default_room=room,
+    )
+    Enrollment.objects.create(course=course, student=student)
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.CLOSED,
+    )
+    checkin = CheckIn.objects.create(
+        session=session,
+        student=student,
+        status=CheckIn.Status.FLAGGED,
+        flag_reasons=["NEW_CREDENTIAL"],
+        device_hint="device",
+        checked_in_at=timezone.now(),
+    )
+    client.force_login(teacher)
+
+    response = client.post(
+        f"/teacher/sessions/{session.id}/attendance/",
+        {
+            "action": "review",
+            "checkin_id": str(checkin.id),
+            "decision": CheckIn.Status.PRESENT,
+            "note": "Verified in class",
+        },
+    )
+
+    checkin.refresh_from_db()
+    assert response.status_code == 302
+    assert checkin.status == CheckIn.Status.PRESENT
+    assert checkin.reviewed_by == teacher
+    assert checkin.review_note == "Verified in class"
+
+
+@pytest.mark.django_db
+def test_teacher_roster_warns_when_attendance_is_below_80_percent(client):
+    teacher = User.objects.create_user(
+        email="teacher@example.com",
+        full_name="Teacher",
+        role=User.Role.TEACHER,
+        is_active=True,
+    )
+    student = User.objects.create_user(
+        email="student@example.com",
+        full_name="Student Example",
+        role=User.Role.STUDENT,
+        student_number="S-103",
+        is_active=True,
+    )
+    term = Term.objects.create(
+        name="Term 1",
+        starts_on="2024-01-01",
+        ends_on="2024-06-30",
+        is_current=True,
+    )
+    room = Room.objects.create(
+        name="Room 101",
+        latitude=6.5244,
+        longitude=3.3792,
+        radius_m=50,
+    )
+    course = Course.objects.create(
+        code="CS101",
+        title="Intro to CS",
+        term=term,
+        teacher=teacher,
+        default_room=room,
+    )
+    Enrollment.objects.create(course=course, student=student)
+    sessions = [
+        ClassSession.objects.create(
+            course=course,
+            room=room,
+            teacher=teacher,
+            status=ClassSession.Status.CLOSED,
+        )
+        for _ in range(4)
+    ]
+    for session in sessions[:3]:
+        CheckIn.objects.create(
+            session=session,
+            student=student,
+            status=CheckIn.Status.PRESENT,
+            device_hint="device",
+            checked_in_at=timezone.now(),
+        )
+    client.force_login(teacher)
+
+    response = client.get(f"/teacher/sessions/{sessions[-1].id}/attendance/")
+
+    assert response.status_code == 200
+    assert b"75%" in response.content
+    assert b"Warning below 80%" in response.content

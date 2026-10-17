@@ -6,6 +6,7 @@
 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px;">
     <div class="card" style="text-align: center; max-width: 500px; width: 100%;">
         <h1 style="margin-bottom: 20px; color: #4a4a3a;">Scan to Check In</h1>
+        <p><a href="{% url 'teacher_session_attendance' session.id %}">View attendance roster</a></p>
 
         <div id="error-message" class="alert alert-error" style="display: none;"></div>
 

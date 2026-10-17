@@ -1,447 +1,202 @@
-# POMSOM - University Attendance System
+# POMSOM Attendance System
 
-A production-grade university attendance system that prevents students from signing in for absent classmates. A check-in is `PRESENT` only when all three conditions hold: a fresh QR code, passkey identity verification, and physical presence inside the classroom. Anything else becomes `FLAGGED` for teacher review.
+POMSOM records attendance for university classes. Students check in with a rotating QR code, their registered passkey, and a fresh location reading. The location is compared with the classroom point and radius saved for that course.
 
-## 🌐 Live Deployment
+The application uses Django, Django REST Framework, SQLite for local development, and PostgreSQL on Neon in production. The web interface uses Django templates and JavaScript modules.
 
-**Production URL:** https://pomsom.akili.com.ng
+## What It Does
 
-## Features
+- Admins create terms, courses, users, and course enrollments.
+- Teachers set the classroom point and allowed radius for each course, schedule class times, open check-in, and display a QR code.
+- Students scan the QR code, share their current location, and confirm their registered passkey.
+- The system records the check-in location with that attendance record. It does not save a permanent student profile location or track location continuously.
+- Teachers view enrolled students and attendance status, inspect flag reasons, review flagged records, and finalize closed sessions.
+- The teacher roster shows an attendance warning when attendance is below the configured threshold. The default is 80 percent after at least three completed sessions.
 
-- **Secure Check-in System**: Multi-factor verification using QR codes, WebAuthn passkeys, and geolocation
-- **Fraud Detection**: Automatic flagging of suspicious check-ins (shared devices, duplicate coordinates, location anomalies)
-- **Early Warning Alerts**: Alerts students and advisors when attendance approaches exam-eligibility thresholds
-- **Role-Based Access**: Student, teacher, advisor, and admin roles with appropriate permissions
-- **Audit Trail**: Comprehensive audit logging of all system actions
-- **Mobile-First UI**: Server-rendered templates with progressive enhancement for mobile devices
+## Local Setup
 
-## Architecture
+### Requirements
 
-This is a modular monolith Django application with clear bounded contexts:
+- Python 3.12
+- Git
+- PowerShell on Windows, or a shell on macOS or Linux
 
-- **core**: Cross-cutting concerns (clock, base model, exceptions, error handling, pagination, permission helpers)
-- **accounts**: User identity, activation, passkeys, recovery
-- **academics**: Terms, rooms, courses, enrollments, advisor assignments, eligibility policies
-- **attendance**: Class sessions, QR tokens, check-ins, spot checks
-- **alerts**: Risk assessment, notifications (outbox pattern)
-- **audit**: Append-only audit log for all actions
+Local development uses SQLite. PostgreSQL and Docker are not required for the basic local workflow.
 
-Each Django app follows the same internal structure:
-- `models.py`: Data and invariants only
-- `selectors.py`: All read queries, always scoped to the acting user
-- `services/`: All write use cases (transactional, audit logged)
-- `domain/`: Pure Python algorithms, rules, enums, dataclasses
-- `adapters/`: Wrappers around third parties (Resend, WebAuthn, signing)
-- `api/`: DRF views, serializers, permissions, URLs
-- `web/`: Template views, templates, static ES modules
-- `tests/`: Mirrors the structure above
+### Install and Run on Windows
 
-## Tech Stack
+Run these commands from the repository directory in PowerShell:
 
-- **Backend**: Python 3.12, Django 5, Django REST Framework
-- **Database**: PostgreSQL (Neon in production, SQLite in development)
-- **Authentication**: WebAuthn (passkeys) with python-webauthn
-- **Frontend**: Server-rendered Django templates with small ES modules (no SPA, no JS build step)
-- **Testing**: pytest, pytest-django, factory_boy
-- **Code Quality**: ruff, mypy with django-stubs, pre-commit
-- **Deployment**: Vercel (Django function), Neon Postgres
-- **Notifications**: Resend (email)
-
-## Development Setup
-
-### Prerequisites
-
-- Python 3.12 or later
-- PostgreSQL (for production) or SQLite (for development)
-- Docker and Docker Compose (for local development)
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd pomsome
-```
-
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -e .
-```
-
-4. Copy environment variables:
-```bash
-cp .env.example .env
-```
-
-5. Configure `.env` with your settings (see `.env.example` for reference)
-
-6. Run migrations:
-```bash
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
 python manage.py migrate
+python create_local_admin.py
+python manage.py runserver 127.0.0.1:8000
 ```
 
-7. Create admin account:
-```bash
-python create_admin.py
-```
-This creates:
-- Email: admin@pomsom.akili.com.ng
-- Password: Admin@1234
-- Role: ADMIN
+If PowerShell blocks virtual environment activation, run this once for your user account and activate again:
 
-8. Run the development server:
-```bash
-make run
-# or
-python manage.py runserver
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-### Docker Development
+Open these local pages:
 
-```bash
-docker-compose up
-```
+- App and login: http://127.0.0.1:8000/
+- Django admin: http://127.0.0.1:8000/admin/
+- API documentation: http://127.0.0.1:8000/api/v1/docs/
 
-## Testing
+`create_local_admin.py` creates a local SQLite administrator with email `admin@pomsom.akili.com.ng` and password `Admin@1234` if one does not already exist. This script is for local development only. Change that password before using the local database with real user data. Do not run this script against production.
 
-Run the full test suite:
-```bash
-make test
-# or
+The local development settings use SQLite and default WebAuthn settings for localhost. Production secrets belong in the hosting provider's environment settings, not in source control.
+
+### Verify the Installation
+
+Open another terminal with the virtual environment activated and run:
+
+```powershell
+python manage.py check
 pytest
-```
-
-Run with coverage:
-```bash
-pytest --cov=apps --cov-report=html
-```
-
-## Code Quality
-
-Lint and format code:
-```bash
-make lint
-# or
 ruff check .
-ruff format .
 ```
 
-Type checking:
-```bash
-mypy config/
+`python manage.py check` verifies Django configuration. `pytest` runs the automated tests. `ruff check .` checks Python style and common errors.
+
+## Initial Admin Setup
+
+1. Sign in at `/admin/` with the local administrator account created above.
+2. Under Academics, create a term with its start and end dates.
+3. Under Accounts, create teacher accounts with email and full name. Saving an account sends an activation email when email delivery is configured.
+4. Create student accounts with email, full name, and student number. A student number is required.
+5. Under Academics, create courses and assign each course to its teacher and term.
+6. Enroll students in courses by creating Enrollment records in Django admin.
+7. Optionally create an Eligibility Policy. A course-specific policy takes priority over a global policy. Without either, the teacher roster uses the 80 percent default.
+8. If an activation email does not arrive, select the pending account in Accounts and use the Resend activation email action. Email delivery requires valid Resend settings.
+
+The admin interface does not currently provide CSV import screens. Create users, courses, and enrollments through the admin forms or use the documented API.
+
+## Account Activation and Sign-In
+
+1. Open the activation link from the account email or visit `/activate/`.
+2. Enter the activation code and the account identity requested by the page.
+3. Set a recovery password and register a passkey on the device or browser that will be used to sign in and check in.
+4. Sign in at `/login/` with the account email and registered passkey.
+5. Use the Log out button in the top account bar to end the browser session. Logout is a POST action, so opening `/logout/` directly in the address bar is not the logout procedure.
+
+Passkeys are tied to the website domain and browser credential store. Use the same site and browser profile for activation, sign-in, and student check-in.
+
+## Teacher Workflow
+
+### Set the Classroom Location
+
+1. Sign in with the teacher account.
+2. Open `/teacher/classrooms/`.
+3. Select the course.
+4. Click the map to set the classroom point.
+5. Set the allowed radius. This is the maximum distance used for check-in, not the GPS accuracy value.
+6. Save the location. A classroom must be saved before scheduling a session for that course.
+
+### Schedule and Open a Class
+
+1. Open `/teacher/sessions/`.
+2. Select the course and enter the class start and end date and time.
+3. Schedule the class. Times use the configured application time zone, which defaults to `Africa/Lagos`.
+4. Start check-in when the button becomes available. Check-in may open no earlier than 20 minutes before the scheduled start.
+5. Display the live QR page on the classroom screen. The QR token refreshes regularly and expires after 15 seconds.
+6. Close check-in early if needed. Before the scheduled end, a closed session can be reopened. The teacher can add up to 120 minutes; adding time to a closed session reopens it.
+
+### View and Review Attendance
+
+1. From the session list or live QR page, open Attendance roster.
+2. The roster includes all students enrolled in the course, including students who have not checked in.
+3. Review each student's status, check-in time, distance from the room, GPS accuracy, attendance percentage, and flag reasons.
+4. For each flagged check-in, choose Approve present or Mark absent. Add a note when useful. The system records who reviewed it and when.
+5. Close the session before finalizing. Resolve all flagged check-ins and pending spot checks first. Finalize attendance from the roster for a closed session.
+
+### Attendance Warning Calculation
+
+The roster calculates attendance as:
+
+```text
+present check-ins in completed sessions / number of completed sessions * 100
 ```
 
-## Project Structure
+Only closed or finalized class sessions are included. A check-in contributes to the numerator when its final status is Present. A flagged check-in does not count as present until a teacher approves it. A completed class with no present check-in counts as not present.
 
-```
-pomsom/
-├── apps/              # Django apps (bounded contexts)
-│   ├── accounts/      # User identity, passkeys
-│   ├── academics/     # Courses, enrollments, policies
-│   ├── attendance/    # Sessions, check-ins, QR
-│   ├── alerts/        # Risk assessment, notifications
-│   ├── audit/         # Audit log
-│   └── core/          # Cross-cutting concerns
-├── config/            # Django settings
-│   └── settings/      # Base, dev, prod, test
-├── docs/              # Documentation
-│   ├── SPEC.md        # Full product specification
-│   └── adr/           # Architecture Decision Records
-├── static/            # Static files (CSS, JS)
-├── templates/         # Django templates
-├── manage.py          # Django management script
-├── pyproject.toml     # Project configuration
-├── docker-compose.yml # Local development
-├── Dockerfile         # Production image
-├── Makefile           # Common commands
-└── .github/           # GitHub Actions workflows
-```
+The default warning threshold is 80 percent. The roster shows a warning after at least three completed sessions when attendance is below the threshold. A course-specific Eligibility Policy overrides the global policy. A global policy overrides the default.
 
-### Environment Variables
+The background attendance-risk evaluator and email notification dispatcher are not implemented. The warning described here appears on the teacher attendance roster. It does not currently send automatic email or in-app alerts.
 
-See `.env.example` for the complete list of required environment variables.
+## Student Workflow
 
-**Local Development:**
-- **Local URL:** http://localhost:8000
-- **Login Page:** http://localhost:8000/login/
-- **Admin Panel:** http://localhost:8000/admin/
-- **API Documentation:** http://localhost:8000/api/v1/docs/
+1. Activate the account and register a passkey.
+2. Sign in on the phone or browser with that passkey.
+3. Open the teacher's live QR link or go to `/checkin/` and scan the displayed code with the camera. Pasting the QR link is also supported.
+4. Allow location access when asked. Location is requested for this check-in only.
+5. The browser checks the reading against the saved classroom point and radius. If outside the area, go to class and share the location again.
+6. Confirm identity with the passkey registered to this student account.
+7. Read the result. A successful check-in records the current location with that attendance record. A flagged check-in needs teacher review.
 
-## 📖 User Guide
+A newly registered passkey may be flagged for review during its first 24 hours. Other flag reasons include low GPS accuracy, a location near the radius boundary, repeated device signals, or repeated coordinates. Teachers can see the reasons on the roster.
 
-### Access URLs
+Camera access requires HTTPS or localhost. If camera scanning is unavailable, check browser camera permission or paste the QR link. Location permission must also be allowed by the browser and device.
 
-- **Live Production:** https://pomsom.akili.com.ng
-- **Login Page:** https://pomsom.akili.com.ng/login/
-- **Admin Panel:** https://pomsom.akili.com.ng/admin/
-- **API Documentation:** https://pomsom.akili.com.ng/api/v1/docs/
+## Troubleshooting
 
-### User Roles & Flows
+### Student Cannot Sign In
 
-#### 1. Admin Flow
+- Confirm the account was activated.
+- Use the same browser profile and site where the passkey was registered.
+- Confirm the account has an active passkey under `/passkeys/` after signing in.
 
-**Access:** https://pomsom.akili.com.ng/admin/
+### Teacher Does Not See a Course
 
-**Setup Steps:**
-1. Create admin account (done locally with `python manage.py createsuperuser`)
-2. Access Django Admin panel
-3. Add teacher and student accounts under "Accounts" in Django Admin
-   - Teachers use their email address and do not need a student number
-   - Students require a student number
-   - The account holder receives an activation email; use the "Resend activation email" action for pending accounts if delivery fails
-4. Configure initial data:
-   - Create academic terms (e.g., 2024/2025 First Semester)
-   - Add rooms/buildings (e.g., Room 101, Lecture Hall A)
-   - Create courses (e.g., CSC 101, MTH 201)
-   - Import students via CSV (email, student_number, full_name)
-   - Import teachers via CSV (email, full_name)
-   - Import advisors via CSV (email, full_name)
-   - Create enrollments (link students to courses)
-   - Assign advisors to students
+- Confirm the course is assigned to that teacher in Django admin.
+- Open `/teacher/classrooms/` and save a classroom point and radius for the course before scheduling a session.
 
-**Admin Responsibilities:**
-- Manage users (students, teachers, advisors)
-- Configure attendance policies (minimum attendance % for exam eligibility)
-- Review flagged check-ins
-- Monitor system health via audit logs
-- Export attendance reports
+### QR Code Is Missing
 
-#### 2. Teacher Flow
+- Confirm the class session is open and the teacher is viewing that session's QR page.
+- Reload the page after the deployment containing the latest QR rendering code is active.
+- Confirm the authenticated teacher owns the session.
 
-**Login:** https://pomsom.akili.com.ng/login/
+### Student Check-In Is Flagged
 
-**Teacher Account Setup:**
-1. Admin creates the teacher under Accounts > Users in Django Admin
-2. Teacher receives an activation email with the one-time code and activation link
-3. Teacher visits https://pomsom.akili.com.ng/activate/
-4. Teacher enters activation code
-5. Teacher sets password (for recovery)
-6. Teacher registers passkey (fingerprint/Face ID on phone)
-7. Account activated and ready!
+- Open the session's Attendance roster to see the recorded reason.
+- `New Credential` means the passkey was registered less than 24 hours before check-in.
+- `Low Gps Accuracy` means the device location estimate is too imprecise.
+- `Gps Borderline` means the location estimate is near the edge of the classroom radius.
+- The teacher can approve the check-in as present or mark it absent after review.
 
-**Daily Class Session:**
-1. Log in with passkey at https://pomsom.akili.com.ng/login/
-2. Open `/teacher/classrooms/`, select a course, pin its room, set the radius, and save
-3. Open `/teacher/sessions/` and schedule the course's start and end times
-4. Start check-in any time from 20 minutes before the scheduled start
-5. Display the rotating QR code on the classroom screen
-6. Close check-in early, reopen it before the scheduled end, or add up to 120 minutes (which reopens a closed session)
+### Classroom Page Shows a Database Column Error
 
-**Teacher Dashboard:**
-- Manage classroom location and radius per course
-- Schedule class start and end times
-- Open and close check-in sessions and control extra time
-- Display the current session QR code
+Run the GitHub Actions `migrate` workflow using the branch containing the migration. The workflow requires `DATABASE_URL_DIRECT` and `SECRET_KEY` repository secrets. It uses `migrate --fake-initial` so existing tables are recorded and new migration operations are applied.
 
-#### 3. Student Flow
+## Production Deployment
 
-**Account Activation:**
-1. Receive activation code via email (sent by admin)
-2. Visit https://pomsom.akili.com.ng/activate/
-3. Enter activation code
-4. Create password (for recovery)
-5. Register passkey (recommended: use phone fingerprint or security key)
-6. Registration complete!
+The production application runs on Vercel and uses Neon PostgreSQL. Configure production secrets in the hosting provider and GitHub Actions. Do not commit `.env` files or production credentials.
 
-**Daily Check-in Process:**
-1. Open https://pomsom.akili.com.ng on phone browser
-2. Log in with passkey (fingerprint/Face ID)
-3. Open the teacher's QR link or `/checkin/`
-4. Scan the QR using the camera, or paste the QR link
-5. Allow browser location access while physically in the saved classroom radius
-6. Verify with the passkey registered to your student account
-7. See the check-in status (PRESENT or FLAGGED)
+When a release includes database migrations:
 
-**Student Dashboard:**
-- Complete a check-in for an open session when enrolled in its course
-- Manage registered passkeys at `/passkeys/`
+1. Push the migration files to the deployment branch.
+2. Run the GitHub Actions workflow named `migrate` from that branch.
+3. Confirm the workflow succeeds before relying on code that queries the new columns.
+4. Confirm the Vercel deployment uses the same branch and commit.
 
-#### 4. Advisor Flow
+The migration workflow connects with the direct Neon database URL. `DATABASE_URL` used by the running app may be pooled and should not be used for schema migrations.
 
-**Login:** https://pomsom.akili.com.ng/login/
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Neon, Vercel, environment, and rollback details.
 
-**Advisor Dashboard:**
-- View assigned students
-- Monitor attendance across all courses
-- Identify at-risk students (low attendance)
-- Receive early warning alerts
-- Contact students with attendance issues
-- Generate attendance reports for academic review
+## Privacy and Security
 
-### Check-in Decision Flow
-
-```
-Student scans QR code
-         ↓
-Is QR code fresh (within 15 seconds)?
-         ↓ NO → FLAGGED (stale code)
-         ↓ YES
-Is passkey valid and registered to student?
-         ↓ NO → FLAGGED (invalid passkey)
-         ↓ YES
-Is student physically inside the course's saved classroom radius (geolocation)?
-         ↓ NO → FLAGGED (outside classroom)
-         ↓ YES
-Is there suspicious activity?
-         ↓ YES → FLAGGED (possible fraud)
-         ↓ NO
-    → PRESENT ✓
-```
-
-### Fraud Detection Rules
-
-A check-in is automatically FLAGGED if:
-- QR code is expired (> 15 seconds old)
-- Passkey not registered to the student
-- Location outside the saved classroom radius or GPS accuracy is too low
-- Multiple check-ins from same device for different students
-- Coordinates identical to another recent check-in (possible device sharing)
-- Network burst pattern (rapid successive check-ins)
-- New passkey used within 24 hours of registration
-
-All FLAGGED check-ins require **manual teacher review** before finalizing.
-
-### Initial Setup Checklist
-
-**First-time Admin Setup:**
-
-1. **Create Admin Account**
-   ```bash
-   python create_admin.py
-   ```
-   This creates an admin account with:
-   - Email: admin@pomsom.akili.com.ng
-   - Password: Admin@1234
-   - Role: ADMIN
-
-   **IMPORTANT:** Change this password after first login!
-
-2. **Access Admin Panel**
-   - Visit: https://pomsom.akili.com.ng/admin/
-   - Log in with admin credentials
-
-3. **Configure Academic Structure**
-   - Go to "Academics" section
-   - Add Terms (e.g., "2024/2025 First Semester")
-   - Add Rooms (e.g., "Room 101", "Lecture Hall A")
-   - Add Courses (e.g., "CSC 101 - Introduction to Computer Science")
-
-4. **Import Users**
-   - Prepare CSV files for students, teachers, advisors
-   - Format: `email,student_id,full_name` (for students)
-   - Format: `email,full_name` (for teachers/advisors)
-   - Use Admin panel import function
-
-5. **Create Enrollments**
-   - Link students to their courses
-   - Assign advisors to students
-
-6. **Configure Policies**
-   - Set minimum attendance percentage for exam eligibility (default: 75%)
-   - Configure location retention period (default: 180 days)
-
-7. **Test the System**
-   - Create a test student account
-   - Activate the account
-   - Register a passkey
-   - Test QR code check-in flow
-   - Verify attendance tracking
-
-### CSV Import Format
-
-**Students CSV:**
-```csv
-email,student_id,full_name
-student1@university.edu,STU001,John Doe
-student2@university.edu,STU002,Jane Smith
-```
-
-**Teachers CSV:**
-```csv
-email,full_name
-teacher1@university.edu,Dr. Alan Turing
-teacher2@university.edu,Prof. Grace Hopper
-```
-
-**Advisors CSV:**
-```csv
-email,full_name
-advisor1@university.edu,Dr. Margaret Hamilton
-advisor2@university.edu,Prof. Katherine Johnson
-```
-
-**Enrollments CSV:**
-```csv
-student_email,course_code
-student1@university.edu,CSC101
-student1@university.edu,MTH201
-student2@university.edu,CSC101
-```
-
-### Troubleshooting
-
-**Student can't log in:**
-- Check if account is activated
-- Verify passkey is registered
-- Try password recovery option
-
-**QR code not scanning:**
-- Ensure QR code is displayed clearly
-- Check camera permissions
-- Update browser to latest version
-
-**Location verification failing:**
-- Enable GPS/location services on phone
-- Ensure you're physically in the classroom
-- Check if building has GPS signal
-
-**Check-in showing FLAGGED:**
-- Check if QR code was stale (scan faster next time)
-- Verify you're using your own passkey
-- Ensure you're within classroom boundaries
-- Contact teacher for manual review
-
-
-
-## Security
-
-- Production HTTPS only with HSTS
-- Secure and SameSite cookies
-- CSRF protection
-- Strict ALLOWED_HOSTS
-- Secrets only from environment
-- Admin on a non-default URL
-- Structured JSON logging with request IDs
-- Location data is collected only during check-in, never continuously
-- Never log coordinates, tokens, assertions, or activation codes
-
-## Future Enhancements
-
-- **Push Notifications**: Real-time alerts for students when check-in is about to open
-- **Offline Mode**: Allow check-in queuing when internet is poor, sync when reconnected
-- **Multi-Language Support**: Support for local languages
-- **Advanced Analytics**: Attendance trends, heatmaps, and predictive analytics
-- **Mobile App**: Native mobile apps for better camera performance and background location
-
-## Privacy
-
-Location data is personal data under the Nigeria Data Protection Act. The system:
-- Collects location only during check-in
-- Never tracks location continuously
-- Shows a privacy notice to users
-- Provides a `purge_location_data` command that nulls latitude and longitude older than `LOCATION_RETENTION_DAYS` (default 180) while preserving distance_m
-
-
-Location data is personal data under the Nigeria Data Protection Act. The system:
-- Collects location only during check-in
-- Never tracks location continuously
-- Shows a privacy notice to users
-- Provides a `purge_location_data` command that nulls latitude and longitude older than `LOCATION_RETENTION_DAYS` (default 180) while preserving distance_m
+- Location is requested only during student check-in, not continuously.
+- Location coordinates are stored with the attendance record to support review and retention cleanup.
+- QR tokens are short lived.
+- Login, activation, and check-in identity verification use WebAuthn passkeys.
+- Production must use HTTPS and environment-managed secrets.
+- Do not log QR tokens, passkey assertions, activation codes, or student coordinates.
 
 

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Roster - POMSOM{% endblock %}
+
+{% block content %}
+<main class="attendance-page">
+    <header class="attendance-header">
+        <div>
+            <p class="eyebrow">{{ session.course.code }} · {{ session.room.name }}</p>
+            <h1>Attendance roster</h1>
+            <p>{{ session.course.title }} · {{ session.scheduled_start_at|date:"D, j M Y · H:i" }}</p>
+        </div>
+        <nav aria-label="Session navigation">
+            <a href="{% url 'teacher_sessions' %}">All sessions</a>
+            {% if session.status == "OPEN" %}
+                <a href="{% url 'teacher_qr' session.id %}">Live QR</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    {% for message in messages %}
+        <p class="roster-message {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
+
+    <section class="attendance-summary" aria-label="Attendance totals">
+        <div><strong>{{ present_count }}</strong><span>Present</span></div>
+        <div><strong>{{ flagged_count }}</strong><span>Needs review</span></div>
+        <div><strong>{{ absent_count }}</strong><span>Absent</span></div>
+        <div><strong>{{ not_checked_in_count }}</strong><span>Not checked in</span></div>
+        <div><strong>{{ roster|length }}</strong><span>Enrolled</span></div>
+        <div><strong>{{ warning_count }}</strong><span>Below {{ warning_threshold }}% attendance</span></div>
+    </section>
+
+    <div class="roster-table-wrap">
+        <table class="roster-table">
+            <thead>
+                <tr>
+                    <th scope="col">Student</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Check-in</th>
+                    <th scope="col">Course attendance</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Review / flags</th>
+                    <th scope="col">Teacher action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in roster %}
+                    <tr>
+                        <th scope="row">
+                            {{ row.student.full_name }}
+                            <small>{{ row.student.student_number|default:row.student.email }}</small>
+                        </th>
+                        {% if row.checkin %}
+                            <td><span class="status status-{{ row.checkin.status|lower }}">{{ row.checkin.get_status_display }}</span></td>
+                            <td>{{ row.checkin.checked_in_at|date:"H:i:s" }}</td>
+                            <td>
+                                {% if row.attendance_pct != None %}
+                                    {{ row.attendance_pct }}%
+                                    {% if row.attendance_warning %}<span class="flag-reason">Warning below {{ warning_threshold }}%</span>{% endif %}
+                                {% else %}
+                                    <small>No completed classes yet</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.checkin.distance_m != None %}
+                                    {{ row.checkin.distance_m|floatformat:0 }} m from room
+                                    {% if row.checkin.accuracy_m != None %}<small>GPS ±{{ row.checkin.accuracy_m|floatformat:0 }} m</small>{% endif %}
+                                {% else %}
+                                    <small>Location unavailable</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.checkin.display_flag_reasons %}
+                                    {% for reason in row.checkin.display_flag_reasons %}<span class="flag-reason">{{ reason }}</span>{% endfor %}
+                                {% elif row.checkin.reviewed_by %}
+                                    <small>Reviewed by {{ row.checkin.reviewed_by.full_name }}</small>
+                                    {% if row.checkin.review_note %}<small>{{ row.checkin.review_note }}</small>{% endif %}
+                                {% else %}
+                                    <small>No flags</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.checkin.status == "FLAGGED" and not row.checkin.reviewed_at %}
+                                    <form method="post" class="review-form">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="review">
+                                        <input type="hidden" name="checkin_id" value="{{ row.checkin.id }}">
+                                        <label class="sr-only" for="note-{{ row.checkin.id }}">Review note for {{ row.student.full_name }}</label>
+                                        <input id="note-{{ row.checkin.id }}" name="note" maxlength="500" placeholder="Optional note">
+                                        <div class="review-buttons">
+                                            <button type="submit" name="decision" value="PRESENT">Approve present</button>
+                                            <button type="submit" name="decision" value="ABSENT">Mark absent</button>
+                                        </div>
+                                    </form>
+                                {% elif row.checkin.reviewed_at %}
+                                    <small>Reviewed {{ row.checkin.reviewed_at|date:"H:i" }}</small>
+                                {% else %}
+                                    <small>—</small>
+                                {% endif %}
+                            </td>
+                        {% else %}
+                            <td><span class="status status-pending">Not checked in</span></td>
+                            <td>—</td>
+                            <td>
+                                {% if row.attendance_pct != None %}
+                                    {{ row.attendance_pct }}%
+                                    {% if row.attendance_warning %}<span class="flag-reason">Warning below {{ warning_threshold }}%</span>{% endif %}
+                                {% else %}
+                                    <small>No completed classes yet</small>
+                                {% endif %}
+                            </td>
+                            <td>—</td>
+                            <td>—</td>
+                            <td>—</td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7">No students are enrolled in this course.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if session.status == "CLOSED" %}
+        <form method="post" class="finalize-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="finalize">
+            <button type="submit" {% if flagged_count %}disabled{% endif %}>Finalize attendance</button>
+        </form>
+    {% endif %}
+</main>
+
+<style>
+    .attendance-page { max-width: 1180px; margin: 28px auto; color: #20302d; }
+    .attendance-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid #cad5d0; }
+    .attendance-header h1 { margin: 6px 0; font-size: 28px; }
+    .attendance-header nav { display: flex; gap: 16px; }
+    .eyebrow { color: #37685b; font-size: 12px; font-weight: 700; }
+    .attendance-summary { display: flex; flex-wrap: wrap; gap: 28px; padding: 18px 0; border-bottom: 1px solid #cad5d0; }
+    .attendance-summary div { display: grid; gap: 3px; }
+    .attendance-summary strong { font-size: 22px; }
+    .attendance-summary span, .roster-table small { color: #607168; font-size: 12px; }
+    .roster-table-wrap { overflow-x: auto; }
+    .roster-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .roster-table th, .roster-table td { padding: 13px 10px; border-bottom: 1px solid #e0e7e3; vertical-align: top; }
+    .roster-table thead th { color: #52645d; font-size: 12px; text-transform: uppercase; }
+    .roster-table tbody th { min-width: 150px; font-weight: 600; }
+    .roster-table tbody th small, .roster-table td small { display: block; margin-top: 4px; }
+    .status, .flag-reason { display: inline-block; padding: 4px 7px; font-size: 12px; border-radius: 3px; white-space: nowrap; }
+    .status-present { background: #e1f0e7; color: #1f6843; }
+    .status-flagged { background: #fff0d6; color: #8a5710; }
+    .status-absent, .status-pending { background: #edf0ee; color: #52645d; }
+    .flag-reason { margin: 0 4px 4px 0; background: #fff0d6; color: #8a5710; }
+    .review-form { min-width: 210px; }
+    .review-form input { width: 100%; padding: 7px; border: 1px solid #aab8b1; border-radius: 3px; }
+    .review-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .review-buttons button, .finalize-form button { padding: 7px 9px; border: 0; border-radius: 3px; background: #1c6250; color: white; cursor: pointer; }
+    .review-buttons button:last-child { background: #5e6662; }
+    .finalize-form { display: flex; justify-content: flex-end; padding-top: 18px; }
+    .finalize-form button:disabled { opacity: .5; cursor: not-allowed; }
+    .roster-message { padding: 12px; margin: 14px 0; background: #e8f0e8; }
+    .roster-message.error { background: #fde8e8; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+    @media (max-width: 700px) { .attendance-header { align-items: flex-start; flex-direction: column; } .attendance-summary { gap: 16px; } .roster-table { min-width: 880px; } }
+</style>
+{% endblock %}
