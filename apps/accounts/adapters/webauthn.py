@@ -1,4 +1,6 @@
+import ast
 import base64
+import codecs
 import secrets
 
 from webauthn import (
@@ -43,11 +45,29 @@ def _decode_public_key(public_key: str | bytes) -> bytes:
     if not public_key:
         return b""
 
+    value = str(public_key).strip()
+
+    if value.startswith(("b'", 'b"')):
+        try:
+            return ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            pass
+
     try:
-        padded = public_key + "=" * (-len(public_key) % 4)
-        return base64.urlsafe_b64decode(padded)
+        padded = value + "=" * (-len(value) % 4)
+        decoded = base64.urlsafe_b64decode(padded)
+        if decoded:
+            return decoded
     except (TypeError, ValueError):
-        return public_key.encode("utf-8")
+        pass
+
+    try:
+        escaped = codecs.decode(value, "unicode_escape")
+        return escaped.encode("latin1")
+    except (TypeError, UnicodeDecodeError, ValueError):
+        pass
+
+    return value.encode("latin1")
 
 
 class WebAuthnAdapterImpl(WebAuthnAdapter):

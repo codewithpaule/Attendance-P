@@ -70,6 +70,33 @@ def test_authentication_verification_decodes_stored_public_key(mock_verify):
 
 
 @patch("apps.accounts.adapters.webauthn.verify_authentication_response")
+def test_authentication_verification_decodes_legacy_python_bytes_repr(mock_verify):
+    mock_verify.return_value = SimpleNamespace(new_sign_count=7)
+    adapter = WebAuthnAdapterImpl(
+        rp_id="example.test", rp_name="POMSOM", origin="https://example.test"
+    )
+    response = PasskeyAuthenticationResponse(
+        credential_id=encode(b"credential"),
+        client_data_json=encode(b"client-data"),
+        authenticator_data=encode(b"authenticator-data"),
+        signature=encode(b"signature"),
+        user_handle=encode(b"user-handle"),
+    )
+
+    result = adapter.verify_authentication_response(
+        response=response,
+        expected_challenge=encode(b"challenge"),
+        expected_origin=adapter.origin,
+        expected_rp_id=adapter.rp_id,
+        public_key="b'\\xa2\\x01\\x02'",
+        current_sign_count=4,
+    )
+
+    assert result == 7
+    assert mock_verify.call_args.kwargs["credential_public_key"] == b"\xa2\x01\x02"
+
+
+@patch("apps.accounts.adapters.webauthn.verify_authentication_response")
 def test_authentication_verification_parses_webauthn_v3_credential(mock_verify):
     mock_verify.return_value = SimpleNamespace(new_sign_count=5)
     adapter = WebAuthnAdapterImpl(
