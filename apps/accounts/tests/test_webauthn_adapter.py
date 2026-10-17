@@ -15,7 +15,7 @@ def encode(value: bytes) -> str:
 
 @patch("apps.accounts.adapters.webauthn.verify_registration_response")
 def test_registration_verification_parses_webauthn_v3_credential(mock_verify):
-    mock_verify.return_value = SimpleNamespace(credential_public_key="public-key", sign_count=4)
+    mock_verify.return_value = SimpleNamespace(credential_public_key=b"\xa2\x01\x02", sign_count=4)
     adapter = WebAuthnAdapterImpl(
         rp_id="example.test", rp_name="POMSOM", origin="https://example.test"
     )
@@ -33,12 +33,40 @@ def test_registration_verification_parses_webauthn_v3_credential(mock_verify):
         expected_rp_id=adapter.rp_id,
     )
 
-    assert result == ("public-key", 4)
+    assert result == (encode(b"\xa2\x01\x02"), 4)
     credential = mock_verify.call_args.kwargs["credential"]
     assert credential.raw_id == b"credential"
     assert credential.response.client_data_json == b"client-data"
     assert credential.response.attestation_object == b"attestation"
     assert mock_verify.call_args.kwargs["expected_challenge"] == b"challenge"
+
+
+@patch("apps.accounts.adapters.webauthn.verify_authentication_response")
+def test_authentication_verification_decodes_stored_public_key(mock_verify):
+    mock_verify.return_value = SimpleNamespace(new_sign_count=5)
+    adapter = WebAuthnAdapterImpl(
+        rp_id="example.test", rp_name="POMSOM", origin="https://example.test"
+    )
+    response = PasskeyAuthenticationResponse(
+        credential_id=encode(b"credential"),
+        client_data_json=encode(b"client-data"),
+        authenticator_data=encode(b"authenticator-data"),
+        signature=encode(b"signature"),
+        user_handle=encode(b"user-handle"),
+    )
+    stored_public_key = encode(b"\xa2\x01\x02")
+
+    result = adapter.verify_authentication_response(
+        response=response,
+        expected_challenge=encode(b"challenge"),
+        expected_origin=adapter.origin,
+        expected_rp_id=adapter.rp_id,
+        public_key=stored_public_key,
+        current_sign_count=4,
+    )
+
+    assert result == 5
+    assert mock_verify.call_args.kwargs["credential_public_key"] == b"\xa2\x01\x02"
 
 
 @patch("apps.accounts.adapters.webauthn.verify_authentication_response")

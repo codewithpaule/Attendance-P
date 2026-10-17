@@ -30,6 +30,26 @@ def _decode_challenge(challenge: str) -> bytes:
     return base64.urlsafe_b64decode(padded)
 
 
+def _encode_public_key(public_key: str | bytes) -> str:
+    if isinstance(public_key, str):
+        public_key = public_key.encode("utf-8")
+    return base64.urlsafe_b64encode(public_key).rstrip(b"=").decode("ascii")
+
+
+def _decode_public_key(public_key: str | bytes) -> bytes:
+    if isinstance(public_key, bytes):
+        return public_key
+
+    if not public_key:
+        return b""
+
+    try:
+        padded = public_key + "=" * (-len(public_key) % 4)
+        return base64.urlsafe_b64decode(padded)
+    except (TypeError, ValueError):
+        return public_key.encode("utf-8")
+
+
 class WebAuthnAdapterImpl(WebAuthnAdapter):
     def __init__(self, rp_id: str, rp_name: str, origin: str):
         self.rp_id = rp_id
@@ -87,7 +107,7 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
             expected_origin=expected_origin,
             expected_rp_id=expected_rp_id,
         )
-        return verification.credential_public_key, verification.sign_count
+        return _encode_public_key(verification.credential_public_key), verification.sign_count
 
     def generate_authentication_options(
         self,
@@ -134,7 +154,7 @@ class WebAuthnAdapterImpl(WebAuthnAdapter):
             expected_challenge=_decode_challenge(expected_challenge),
             expected_origin=expected_origin,
             expected_rp_id=expected_rp_id,
-            credential_public_key=public_key,
+            credential_public_key=_decode_public_key(public_key),
             credential_current_sign_count=current_sign_count,
         )
         return verification.new_sign_count
