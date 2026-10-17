@@ -96,6 +96,31 @@ def test_protected_pages_redirect_to_project_login(client):
 
 
 @pytest.mark.django_db
+def test_logout_clears_session_and_returns_to_login(client):
+    teacher = User.objects.create_user(
+        email="teacher@example.com",
+        password="test-password",
+        full_name="Teacher Example",
+        role=User.Role.TEACHER,
+        is_active=True,
+    )
+    client.force_login(teacher)
+
+    response = client.post(reverse("logout"))
+
+    assert response.status_code == 302
+    assert response.url == reverse("login")
+    assert client.get(reverse("home")).url == reverse("login")
+
+
+@pytest.mark.django_db
+def test_logout_requires_post(client):
+    response = client.get(reverse("logout"))
+
+    assert response.status_code == 405
+
+
+@pytest.mark.django_db
 def test_login_begin_returns_active_credentials_and_stores_challenge():
     teacher = User.objects.create_user(
         email="teacher@example.com",

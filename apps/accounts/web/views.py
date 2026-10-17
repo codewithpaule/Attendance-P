@@ -1,6 +1,7 @@
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from apps.accounts.models import User
 
@@ -21,6 +22,12 @@ def home_view(request):
 @require_http_methods(["GET", "POST"])
 def login_view(request):
     return render(request, "accounts/login.html")
+
+
+@require_POST
+def logout_view(request):
+    logout(request)
+    return redirect("login")
 
 
 @require_http_methods(["GET", "POST"])
