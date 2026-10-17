@@ -71,3 +71,21 @@ def test_student_cannot_access_teacher_session_page(client):
     response = client.get("/teacher/sessions/")
 
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_student_checkin_page_renders_camera_scanner_controls(client):
+    student = User.objects.create_user(
+        email="student@example.com",
+        full_name="Student",
+        role=User.Role.STUDENT,
+        is_active=True,
+    )
+    client.force_login(student)
+
+    response = client.get("/checkin/")
+
+    assert response.status_code == 200
+    assert b'id="camera-start-btn"' in response.content
+    assert b'id="qr-camera"' in response.content
+    assert b'id="camera-status"' in response.content
