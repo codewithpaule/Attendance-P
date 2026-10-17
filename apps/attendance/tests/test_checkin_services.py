@@ -1,10 +1,11 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from django.utils import timezone
 
 from apps.academics.models import Course, Enrollment, Room, Term
-from apps.accounts.models import User
+from apps.accounts.models import PasskeyCredential, User
 from apps.attendance.models import CheckIn, ClassSession
 from apps.attendance.services.checkin import begin_checkin, complete_checkin
 from apps.attendance.services.session import open_session
@@ -295,6 +296,75 @@ def test_complete_checkin_outside_classroom_requires_student_to_go_to_class():
         )
 
     assert not CheckIn.objects.filter(session=session, student=student).exists()
+
+
+@pytest.mark.django_db
+@patch(
+    "apps.attendance.services.checkin.WebAuthnAdapterImpl.verify_authentication_response",
+    return_value=1,
+)
+def test_complete_checkin_verifies_students_own_passkey_and_saves_location(mock_verify):
+    term = Term.objects.create(name="Term 1", starts_on="2024-01-01", ends_on="2024-06-30", is_current=True)
+    room = Room.objects.create(name="Room 101", latitude=6.5244, longitude=3.3792, radius_m=50)
+    teacher = User.objects.create_user(email="teacher@example.com", full_name="Teacher", role="teacher")
+    student = User.objects.create_user(email="student@example.com", full_name="Student", role="student")
+    course = Course.objects.create(code="CS101", title="Intro to CS", term=term, teacher=teacher, default_room=room)
+    Enrollment.objects.create(course=course, student=student)
+    session = ClassSession.objects.create(
+        course=course,
+        room=room,
+        teacher=teacher,
+        status=ClassSession.Status.OPEN,
+    )
+    credential = PasskeyCredential.objects.create(
+        user=student,
+        credential_id="student-credential",
+        public_key="test-public-key",
+        sign_count=0,
+    )
+    PasskeyCredential.objects.filter(pk=credential.pk).update(
+        created_at=timezone.now() - timedelta(days=2)
+    )
+    from apps.attendance.adapters.qr import DjangoQRTokenAdapter
+
+    clock = DefaultClock()
+    attempt = begin_checkin(
+        session_id=str(session.id),
+        student=student,
+        qr_token=DjangoQRTokenAdapter().generate_token(str(session.id)),
+        device_hint="student-device",
+        clock=clock,
+    )
+    location = {
+        "lat": 6.5244,
+        "lng": 3.3792,
+        "accuracy_m": 10,
+        "timestamp": clock.now().timestamp(),
+    }
+
+    checkin = complete_checkin(
+        attempt_id=str(attempt.id),
+        student=student,
+        assertion={
+            "credentialId": credential.credential_id,
+            "response": {
+                "clientDataJSON": "client-data",
+                "authenticatorData": "authenticator-data",
+                "signature": "signature",
+                "userHandle": None,
+            },
+        },
+        location=location,
+        clock=clock,
+    )
+
+    credential.refresh_from_db()
+    assert checkin.status == CheckIn.Status.PRESENT
+    assert float(checkin.latitude) == pytest.approx(location["lat"])
+    assert float(checkin.longitude) == pytest.approx(location["lng"])
+    assert credential.sign_count == 1
+    assert credential.last_used_at is not None
+    mock_verify.assert_called_once()
 
 
 @pytest.mark.django_db

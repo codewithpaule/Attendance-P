@@ -4,7 +4,8 @@ from django.conf import settings
 from django.db import transaction
 
 from apps.accounts.adapters.webauthn import WebAuthnAdapterImpl
-from apps.accounts.models import PasskeyCredential, User
+from apps.accounts.models import User
+from apps.accounts.selectors.functions import get_passkey
 from apps.attendance.adapters.qr import DjangoQRTokenAdapter, QRTokenError
 from apps.attendance.domain.decision import FlagCode, make_decision
 from apps.attendance.domain.geo import haversine_distance
@@ -126,8 +127,6 @@ def complete_checkin(
 ) -> CheckIn:
     """Complete the check-in by verifying the assertion and running the decision pipeline."""
     from apps.accounts.domain.webauthn import PasskeyAuthenticationResponse
-    from apps.accounts.services.login import login_with_passkey
-
     # Lock the attempt
     attempt = CheckInAttempt.objects.filter(id=attempt_id).select_for_update().first()
     if not attempt:
@@ -183,14 +182,21 @@ def complete_checkin(
             user_handle=assertion.get("response", {}).get("userHandle", ""),
         )
 
-        login_with_passkey(
-            email=student.email,
+        credential = get_passkey(auth_response.credential_id, student)
+        if not credential:
+            raise BadRequestError("PASSKEY_INVALID", "Passkey is not registered to this student")
+
+        new_sign_count = webauthn_adapter.verify_authentication_response(
             response=auth_response,
             expected_challenge=attempt.challenge,
-            clock=clock,
-            webauthn_adapter=webauthn_adapter,
-            origin=settings.WEBAUTHN_ORIGIN,
+            expected_origin=settings.WEBAUTHN_ORIGIN,
+            expected_rp_id=settings.WEBAUTHN_RP_ID,
+            public_key=credential.public_key,
+            current_sign_count=credential.sign_count,
         )
+        credential.sign_count = new_sign_count
+        credential.last_used_at = clock.now()
+        credential.save(update_fields=["sign_count", "last_used_at", "updated_at"])
     except Exception as err:
         record(
             actor=student,
@@ -213,10 +219,8 @@ def complete_checkin(
 
     # Get credential age
     credential_age_hours = None
-    if assertion.get("credentialId"):
-        credential = PasskeyCredential.objects.filter(credential_id=assertion["credentialId"]).first()
-        if credential and credential.created_at:
-            credential_age_hours = (clock.now() - credential.created_at).total_seconds() / 3600
+    if credential.created_at:
+        credential_age_hours = (clock.now() - credential.created_at).total_seconds() / 3600
 
     # Run decision pipeline
     from apps.attendance.domain.decision import CheckInSignal

@@ -367,7 +367,7 @@ export const checkin = {
           throw new Error('You are outside the classroom check-in area. Go to class and share your location again.');
         }
         document.getElementById('location-error').classList.add('hidden');
-        document.getElementById('location-status').textContent = 'Location received. Confirm your passkey next.';
+        document.getElementById('location-status').textContent = `Location received (accuracy ±${Math.round(currentLocation.accuracy_m)} m). Confirm your passkey next.`;
         showStep('passkey');
       } catch (error) {
         document.getElementById('location-error').textContent = error.message;
